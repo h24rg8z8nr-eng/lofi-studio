@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Lo-fi Studio">
+<title>Lo-fi Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #0D0C14;
+  --surface:  #13121E;
+  --card:     #1A1928;
+  --border:   #2A2840;
+  --accent:   #7B6EF6;
+  --accent2:  #1ED17A;
+  --warn:     #F0A832;
+  --err:      #F05060;
+  --text:     #EAE8FF;
+  --sub:      #7A789A;
+  --dim:      #3E3C5A;
+  --r:        12px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;overflow:hidden}
+
+/* ── レイアウト ── */
+.app{display:flex;flex-direction:column;height:100%;height:100dvh;max-width:420px;margin:0 auto;position:relative}
+
+/* ── ヘッダー ── */
+header{
+  padding:env(safe-area-inset-top,20px) 20px 0;
+  padding-top:max(env(safe-area-inset-top),20px);
+  background:var(--bg);
+  flex-shrink:0;
+}
+.header-inner{display:flex;align-items:center;justify-content:space-between;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.logo{font-size:20px;font-weight:800;letter-spacing:-.03em}
+.logo span{color:var(--accent)}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--dim);display:inline-block;margin-right:6px;transition:background .4s}
+.status-dot.ok{background:var(--accent2)}
+.status-dot.busy{background:var(--warn);animation:pulse 1s infinite}
+.status-dot.err{background:var(--err)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.status-text{font-size:12px;color:var(--sub);font-family:'DM Mono',monospace}
+
+/* ── タブ ── */
+.tabs{display:flex;gap:2px;padding:12px 20px;flex-shrink:0}
+.tab{flex:1;padding:8px 4px;font-size:12px;font-weight:600;color:var(--sub);background:none;border:none;border-radius:8px;cursor:pointer;transition:all .2s;letter-spacing:.02em}
+.tab.active{background:var(--card);color:var(--text)}
+
+/* ── コンテンツ ── */
+.pages{flex:1;overflow:hidden;position:relative}
+.page{position:absolute;inset:0;overflow-y:auto;padding:0 20px 80px;opacity:0;pointer-events:none;transition:opacity .2s}
+.page.active{opacity:1;pointer-events:all}
+
+/* ── カード ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px}
+.card-title{font-size:11px;font-weight:700;color:var(--sub);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px}
+
+/* ── メトリクス ── */
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.metric{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px}
+.metric-label{font-size:10px;color:var(--sub);font-family:'DM Mono',monospace;margin-bottom:4px}
+.metric-value{font-size:24px;font-weight:800;letter-spacing:-.03em}
+.metric-sub{font-size:10px;color:var(--accent2);margin-top:2px;font-family:'DM Mono',monospace}
+
+/* ── ステップ ── */
+.step{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:10px;border:1px solid var(--border);margin-bottom:6px;transition:all .3s}
+.step.done{border-color:color-mix(in srgb,var(--accent2) 30%,transparent)}
+.step.active{border-color:color-mix(in srgb,var(--accent) 50%,transparent);background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.step.error{border-color:color-mix(in srgb,var(--err) 40%,transparent)}
+.step-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;transition:background .3s}
+.step-dot.wait{background:var(--dim)}
+.step-dot.active{background:var(--warn);box-shadow:0 0 8px var(--warn);animation:pulse .8s infinite}
+.step-dot.done{background:var(--accent2)}
+.step-dot.error{background:var(--err)}
+.step-name{font-size:13px;font-weight:600;flex:1;transition:color .3s}
+.step-name.active{color:var(--text)}
+.step-name.dim{color:var(--sub)}
+.step-badge{font-size:10px;font-family:'DM Mono',monospace;color:var(--sub);transition:color .3s}
+.step-badge.ok{color:var(--accent2)}
+.step-badge.active{color:var(--warn)}
+.step-badge.err{color:var(--err)}
+
+/* ── プログレス ── */
+.progress-wrap{margin:14px 0 18px;position:relative}
+.progress-track{height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:2px;transition:width .6s cubic-bezier(.4,0,.2,1);width:0%}
+.progress-label{display:flex;justify-content:space-between;margin-top:6px}
+.progress-pct{font-size:11px;font-family:'DM Mono',monospace;color:var(--sub)}
+
+/* ── ログ ── */
+.log-wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;height:140px;overflow-y:auto;font-family:'DM Mono',monospace;font-size:11px;line-height:1.7}
+.log-line{color:var(--sub)}
+.log-line.ok{color:var(--accent2)}
+.log-line.info{color:var(--accent)}
+.log-line.warn{color:var(--warn)}
+.log-line.err{color:var(--err)}
+
+/* ── ボタン ── */
+.btn{width:100%;padding:15px;border-radius:10px;border:none;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;letter-spacing:.02em;cursor:pointer;transition:all .2s;margin-top:14px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:active{transform:scale(.98);background:color-mix(in srgb,var(--accent) 80%,white)}
+.btn-primary:disabled{background:var(--dim);color:var(--sub);cursor:not-allowed;transform:none}
+.btn-secondary{background:var(--surface);color:var(--sub);border:1px solid var(--border);margin-top:8px}
+.btn-secondary:active{transform:scale(.98)}
+
+/* ── 設定フォーム ── */
+.field{margin-bottom:14px}
+.field label{display:block;font-size:11px;font-weight:700;color:var(--sub);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.field input,.field select{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;font-family:'DM Mono',monospace;color:var(--text);-webkit-appearance:none;outline:none;transition:border-color .2s}
+.field input:focus,.field select:focus{border-color:var(--accent)}
+.field input[type=password]{letter-spacing:.12em}
+.field select option{background:var(--card)}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* ── 履歴 ── */
+.history-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.history-item:last-child{border-bottom:none}
+.history-thumb{width:54px;height:30px;border-radius:6px;flex-shrink:0;background:linear-gradient(135deg,var(--accent),var(--accent2))}
+.history-info{flex:1;min-width:0}
+.history-title{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.history-date{font-size:10px;color:var(--sub);font-family:'DM Mono',monospace;margin-top:2px}
+.badge{font-size:9px;font-weight:700;padding:3px 8px;border-radius:20px;background:color-mix(in srgb,var(--accent2) 15%,transparent);color:var(--accent2);flex-shrink:0;letter-spacing:.04em;text-transform:uppercase}
+
+/* ── ボトムセーフエリア ── */
+.bottom-safe{height:env(safe-area-inset-bottom,0px);flex-shrink:0}
+
+/* ── スケジュールトグル ── */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.toggle-row:last-child{border-bottom:none}
+.toggle-label{font-size:13px;font-weight:600}
+.toggle-sub{font-size:11px;color:var(--sub);font-family:'DM Mono',monospace;margin-top:2px}
+.toggle{width:44px;height:24px;border-radius:12px;background:var(--border);position:relative;cursor:pointer;transition:background .2s;border:none;flex-shrink:0}
+.toggle.on{background:var(--accent)}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s}
+.toggle.on::after{transform:translateX(20px)}
+
+/* ── スクロールバー非表示 ── */
+.page::-webkit-scrollbar,.log-wrap::-webkit-scrollbar{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="header-inner">
+      <div class="logo">Lo-fi<span>Studio</span></div>
+      <div style="display:flex;align-items:center">
+        <span class="status-dot" id="statusDot"></span>
+        <span class="status-text" id="statusText">待機中</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab(0)">実行</button>
+    <button class="tab" onclick="switchTab(1)">設定</button>
+    <button class="tab" onclick="switchTab(2)">履歴</button>
+  </div>
+
+  <div class="pages">
+
+    <!-- ── PAGE 0: ダッシュボード ── -->
+    <div class="page active" id="page0">
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-label">今月の投稿</div>
+          <div class="metric-value" id="mCount">0</div>
+          <div class="metric-sub">本</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">最終実行</div>
+          <div class="metric-value" style="font-size:16px;padding-top:4px" id="mLast">—</div>
+          <div class="metric-sub" id="mLastSub">まだなし</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">パイプライン</div>
+        <div id="steps">
+          <!-- JS で生成 -->
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+          <div class="progress-label">
+            <span class="progress-pct" id="progressPct">0%</span>
+            <span class="progress-pct" id="progressEta"></span>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="runBtn" onclick="runPipeline()">今すぐ実行</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">ログ</div>
+        <div class="log-wrap" id="logBox"></div>
+      </div>
+    </div>
+
+    <!-- ── PAGE 1: 設定 ── -->
+    <div class="page" id="page1">
+      <div class="card">
+        <div class="card-title">API キー</div>
+        <div class="field">
+          <label>Replicate API Token</label>
+          <input type="password" id="cfgReplicate" placeholder="r8_xxxxxxxxxxxx">
+        </div>
+        <div class="field">
+          <label>YouTube Credentials JSON パス</label>
+          <input type="text" id="cfgYtCreds" placeholder="credentials.json">
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">生成パラメータ</div>
+        <div class="field-row">
+          <div class="field">
+            <label>MusicGen</label>
+            <select id="cfgModel">
+              <option value="musicgen-small">small（高速）</option>
+              <option value="musicgen-medium">medium</option>
+              <option value="musicgen-large">large（高品質）</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>曲数</label>
+            <select id="cfgTracks">
+              <option value="7">7曲</option>
+              <option value="9" selected>9曲</option>
+              <option value="12">12曲</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>動画の長さ</label>
+            <select id="cfgDuration">
+              <option value="3600">1時間</option>
+              <option value="7200" selected>2時間</option>
+              <option value="10800">3時間</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>公開設定</label>
+            <select id="cfgPrivacy">
+              <option value="public">公開</option>
+              <option value="unlisted">限定公開</option>
+              <option value="private">非公開</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">スケジュール</div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">毎日自動実行</div>
+            <div class="toggle-sub" id="scheduleTime">—</div>
+          </div>
+          <button class="toggle" id="schedToggle" onclick="toggleSchedule()"></button>
+        </div>
+        <div class="field" style="margin-top:14px">
+          <label>実行時刻</label>
+          <input type="time" id="cfgScheduleTime" value="03:00">
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="saveConfig()">設定を保存</button>
+      <button class="btn btn-secondary" onclick="doYouTubeAuth()">YouTube 認証（初回）</button>
+    </div>
+
+    <!-- ── PAGE 2: 履歴 ── -->
+    <div class="page" id="page2">
+      <div class="card" id="historyCard">
+        <div class="card-title">投稿履歴</div>
+        <div id="historyList">
+          <p style="color:var(--sub);font-size:13px;text-align:center;padding:24px 0">まだ投稿がありません</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <div class="bottom-safe"></div>
+</div>
+
+<script>
+// ── 状態管理 ─────────────────────────────────────
+const STEP_DEFS = [
+  {key:'music',  name:'音楽生成',          sub:'MusicGen'},
+  {key:'audio',  name:'2時間オーディオ結合', sub:'ffmpeg'},
+  {key:'image',  name:'画像生成',          sub:'Replicate API'},
+  {key:'video',  name:'動画エンコード',     sub:'ffmpeg Ken Burns'},
+  {key:'upload', name:'YouTube アップロード',sub:'YouTube Data API'},
+];
+
+let state = {
+  running: false,
+  progress: 0,
+  stepStates: ['wait','wait','wait','wait','wait'],
+  stepLabels: ['待機中','待機中','待機中','待機中','待機中'],
+  logs: [],
+};
+
+let config = loadConfig();
+let history = loadHistory();
+let scheduleEnabled = false;
+let scheduleTimer = null;
+
+// ── 初期化 ────────────────────────────────────────
+window.onload = () => {
+  renderSteps();
+  renderHistory();
+  applyConfig();
+  updateMetrics();
+  checkEnv();
+};
+
+function renderSteps() {
+  const container = document.getElementById('steps');
+  container.innerHTML = STEP_DEFS.map((s,i) => `
+    <div class="step" id="step${i}" data-state="wait">
+      <div class="step-dot wait" id="dot${i}"></div>
+      <div style="flex:1">
+        <div class="step-name dim" id="stepName${i}">${s.name}</div>
+        <div style="font-size:10px;color:var(--dim);font-family:'DM Mono',monospace;margin-top:1px">${s.sub}</div>
+      </div>
+      <div class="step-badge" id="stepBadge${i}">待機中</div>
+    </div>
+  `).join('');
+}
+
+// ── タブ切替 ──────────────────────────────────────
+function switchTab(idx) {
+  document.querySelectorAll('.page').forEach((p,i) => p.classList.toggle('active', i===idx));
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i===idx));
+}
+
+// ── パイプライン実行 ──────────────────────────────
+async function runPipeline() {
+  if (state.running) return;
+  const cfg = collectConfig();
+  if (!cfg.replicate || cfg.replicate.startsWith('r8_xxxx')) {
+    addLog('Replicate API トークンを設定タブで入力してください', 'err');
+    switchTab(1);
+    return;
+  }
+
+  state.running = true;
+  setStatus('busy', '実行中...');
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('runBtn').textContent = '実行中...';
+
+  // リセット
+  for(let i=0;i<5;i++) setStepState(i,'wait','待機中');
+  setProgress(0,'');
+  state.logs = [];
+  document.getElementById('logBox').innerHTML = '';
+
+  const steps = [
+    ['music',  '音楽生成中...',          ()=>simulateStep('music', 8000,  cfg)],
+    ['audio',  'オーディオ結合中...',    ()=>simulateStep('audio', 4000,  cfg)],
+    ['image',  '画像生成中...',          ()=>simulateStep('image', 5000,  cfg)],
+    ['video',  '動画エンコード中...',    ()=>simulateStep('video', 12000, cfg)],
+    ['upload', 'YouTubeアップロード中...', ()=>simulateStep('upload',6000, cfg)],
+  ];
+
+  let ok = true;
+  for(let i=0; i<steps.length; i++) {
+    const [key, msg, fn] = steps[i];
+    setStepState(i, 'active', msg);
+    setProgress(i*20, msg);
+    addLog(msg, 'info');
+    try {
+      await fn();
+      setStepState(i, 'done', '完了 ✓');
+    } catch(e) {
+      setStepState(i, 'error', 'エラー');
+      addLog('エラー: ' + e.message, 'err');
+      ok = false;
+      break;
+    }
+  }
+
+  if (ok) {
+    setProgress(100, '完了');
+    addLog('🎉 パイプライン完了！', 'ok');
+    setStatus('ok', '完了');
+    saveHistoryEntry(cfg);
+    updateMetrics();
+  } else {
+    setStatus('err', 'エラーあり');
+  }
+
+  state.running = false;
+  const btn = document.getElementById('runBtn');
+  btn.disabled = false;
+  btn.textContent = ok ? '再実行' : '再試行';
+}
+
+// ── ステップシミュレーション（実際の呼び出しに差し替え可能） ──
+function simulateStep(key, ms, cfg) {
+  return new Promise((resolve, reject) => {
+    const msgs = {
+      music:  ['MusicGen モデルをロード中...','lo-fi プロンプト生成中...','track_01.wav 生成完了','track_05.wav 生成完了','全曲生成完了（9曲）'],
+      audio:  ['concat_list.txt 作成中...','ffmpeg concat 実行中...','audio_2h.mp3 生成完了'],
+      image:  ['Replicate API 呼び出し中...','FLUX 画像生成中...','background.png 保存完了'],
+      video:  ['ffmpeg Ken Burns フィルター適用中...','1920x1080 エンコード中...','lofi_2h.mp4 完成'],
+      upload: ['YouTube API 認証確認...','アップロード開始（約2GB）...','アップロード完了！'],
+    };
+    const lines = msgs[key] || [];
+    let i = 0;
+    const interval = ms / (lines.length + 1);
+    const timer = setInterval(() => {
+      if (i < lines.length) addLog(lines[i++], '');
+      else {
+        clearInterval(timer);
+        resolve();
+      }
+    }, interval);
+  });
+}
+
+// ── UI更新ヘルパー ────────────────────────────────
+function setStepState(idx, s, label) {
+  const step  = document.getElementById('step'+idx);
+  const dot   = document.getElementById('dot'+idx);
+  const name  = document.getElementById('stepName'+idx);
+  const badge = document.getElementById('stepBadge'+idx);
+  if (!step) return;
+
+  step.className = 'step ' + (s==='done'?'done':s==='active'?'active':s==='error'?'error':'');
+  dot.className = 'step-dot ' + s;
+  name.className = 'step-name ' + (s==='wait'?'dim':'');
+  badge.className = 'step-badge ' + (s==='done'?'ok':s==='active'?'active':s==='error'?'err':'');
+  badge.textContent = label;
+}
+
+function setProgress(pct, eta) {
+  document.getElementById('progressBar').style.width = pct+'%';
+  document.getElementById('progressPct').textContent = Math.round(pct)+'%';
+  document.getElementById('progressEta').textContent = eta;
+}
+
+function addLog(msg, cls='') {
+  const box = document.getElementById('logBox');
+  const ts = new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const line = document.createElement('div');
+  line.className = 'log-line ' + cls;
+  line.textContent = `[${ts}] ${msg}`;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+function setStatus(type, text) {
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusText');
+  dot.className = 'status-dot ' + type;
+  txt.textContent = text;
+}
+
+function updateMetrics() {
+  const h = loadHistory();
+  const thisMonth = h.filter(x => x.date && x.date.startsWith(new Date().toISOString().slice(0,7)));
+  document.getElementById('mCount').textContent = thisMonth.length;
+  if (h.length > 0) {
+    document.getElementById('mLast').textContent = h[0].date.slice(5,10);
+    document.getElementById('mLastSub').textContent = h[0].date.slice(11,16);
+  }
+}
+
+// ── 設定 ────────────────────────────────────────
+function collectConfig() {
+  return {
+    replicate:  document.getElementById('cfgReplicate').value.trim(),
+    ytCreds:    document.getElementById('cfgYtCreds').value.trim(),
+    model:      document.getElementById('cfgModel').value,
+    tracks:     document.getElementById('cfgTracks').value,
+    duration:   document.getElementById('cfgDuration').value,
+    privacy:    document.getElementById('cfgPrivacy').value,
+    schedTime:  document.getElementById('cfgScheduleTime').value,
+  };
+}
+
+function saveConfig() {
+  const cfg = collectConfig();
+  localStorage.setItem('lofi_config', JSON.stringify(cfg));
+  addLog('設定を保存しました', 'ok');
+  alert('設定を保存しました！');
+}
+
+function loadConfig() {
+  try { return JSON.parse(localStorage.getItem('lofi_config') || '{}'); } catch { return {}; }
+}
+
+function applyConfig() {
+  const cfg = loadConfig();
+  if (cfg.replicate) document.getElementById('cfgReplicate').value = cfg.replicate;
+  if (cfg.ytCreds)   document.getElementById('cfgYtCreds').value = cfg.ytCreds;
+  if (cfg.model)     document.getElementById('cfgModel').value = cfg.model;
+  if (cfg.tracks)    document.getElementById('cfgTracks').value = cfg.tracks;
+  if (cfg.duration)  document.getElementById('cfgDuration').value = cfg.duration;
+  if (cfg.privacy)   document.getElementById('cfgPrivacy').value = cfg.privacy;
+  if (cfg.schedTime) document.getElementById('cfgScheduleTime').value = cfg.schedTime;
+}
+
+// ── スケジュール ────────────────────────────────
+function toggleSchedule() {
+  scheduleEnabled = !scheduleEnabled;
+  const btn = document.getElementById('schedToggle');
+  btn.classList.toggle('on', scheduleEnabled);
+  const timeStr = document.getElementById('cfgScheduleTime').value;
+  document.getElementById('scheduleTime').textContent =
+    scheduleEnabled ? `毎日 ${timeStr} に自動実行` : '—';
+  if (scheduleEnabled) {
+    addLog(`スケジュール設定: 毎日 ${timeStr}`, 'ok');
+    setupSchedule(timeStr);
+  } else {
+    if (scheduleTimer) clearTimeout(scheduleTimer);
+    addLog('スケジュールを解除しました', 'warn');
+  }
+}
+
+function setupSchedule(timeStr) {
+  const [h, m] = timeStr.split(':').map(Number);
+  const now = new Date();
+  const next = new Date();
+  next.setHours(h, m, 0, 0);
+  if (next <= now) next.setDate(next.getDate() + 1);
+  const ms = next - now;
+  scheduleTimer = setTimeout(() => {
+    runPipeline();
+    setupSchedule(timeStr);
+  }, ms);
+}
+
+// ── YouTube 認証 ───────────────────────────────
+function doYouTubeAuth() {
+  alert('ターミナルで以下を実行してください:\n\npython3 auth_youtube.py\n\nブラウザが開くので、YouTubeアカウントでログインしてください。');
+}
+
+// ── 環境チェック ────────────────────────────────
+function checkEnv() {
+  const cfg = loadConfig();
+  if (cfg.replicate && !cfg.replicate.startsWith('r8_xxxx')) {
+    setStatus('ok', '設定済み');
+  } else {
+    setStatus('', '設定が必要');
+    addLog('設定タブで API トークンを入力してください', 'warn');
+  }
+}
+
+// ── 履歴 ────────────────────────────────────────
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem('lofi_history') || '[]'); } catch { return []; }
+}
+
+function saveHistoryEntry(cfg) {
+  const h = loadHistory();
+  const themes = ['Late Night Study Session','Rainy Day Vibes','Cozy Cafe Atmosphere','Midnight City Lights'];
+  h.unshift({
+    title: themes[Math.floor(Math.random()*themes.length)],
+    date: new Date().toISOString().slice(0,16).replace('T',' '),
+  });
+  localStorage.setItem('lofi_history', JSON.stringify(h.slice(0,50)));
+  renderHistory();
+}
+
+function renderHistory() {
+  const h = loadHistory();
+  const list = document.getElementById('historyList');
+  const colors = [
+    'linear-gradient(135deg,#7B6EF6,#1ED17A)',
+    'linear-gradient(135deg,#F0A832,#7B6EF6)',
+    'linear-gradient(135deg,#1ED17A,#7B6EF6)',
+    'linear-gradient(135deg,#F05060,#7B6EF6)',
+  ];
+  if (!h.length) {
+    list.innerHTML = '<p style="color:var(--sub);font-size:13px;text-align:center;padding:24px 0">まだ投稿がありません</p>';
+    return;
+  }
+  list.innerHTML = h.map((item,i) => `
+    <div class="history-item">
+      <div class="history-thumb" style="background:${colors[i%colors.length]}"></div>
+      <div class="history-info">
+        <div class="history-title">${item.title}</div>
+        <div class="history-date">${item.date}</div>
+      </div>
+      <div class="badge">公開済</div>
+    </div>
+  `).join('');
+}
+</script>
+</body>
+</html>
