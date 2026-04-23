@@ -652,7 +652,7 @@ async function stepAudio({ audioUrls, ...cfg }) {
   log('  Cloudflare Worker でオーディオ結合中...');
   const duration = parseInt(getCfg().duration);
 
-  const res = await fetch('https://lofi-audio-merge.YOUR_SUBDOMAIN.workers.dev', {
+  const res = await fetch('https://lofi-audio-merge.lofi-studio-imu.workers.dev', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ audioUrls, targetDuration: duration }),
@@ -681,7 +681,7 @@ async function stepVideo({ longAudioUrl, imageUrl }) {
   log('  Cloudflare Worker で動画生成中（Ken Burns）...');
   const duration = parseInt(getCfg().duration);
 
-  const res = await fetch('https://lofi-video-gen.YOUR_SUBDOMAIN.workers.dev', {
+  const res = await fetch('https://lofi-video-gen.lofi-studio-imu.workers.dev', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ audioUrl: longAudioUrl, imageUrl, duration }),
