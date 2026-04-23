@@ -758,7 +758,7 @@ async function stepUpload({ videoUrl }) {
 
 // ── Replicate API ヘルパー ───────────────────────────
 async function replicateRun(token, body) {
-  const res = await fetch('https://api.replicate.com/v1/predictions', {
+  const res = await fetch('https://lofi-replicate-proxy.lofi-studio-imu.workers.dev/v1/predictions', {
     method: 'POST',
     headers: {
       Authorization: `Token ${token}`,
@@ -772,7 +772,7 @@ async function replicateRun(token, body) {
 
   for (let i=0; i<120; i++) {
     await sleep(5000);
-    const poll = await fetch(`https://api.replicate.com/v1/predictions/${id}`, {
+    const poll = await fetch(`https://lofi-replicate-proxy.lofi-studio-imu.workers.dev/v1/predictions/${id}`, {
       headers: { Authorization: `Token ${token}` },
     }).then(r => r.json());
     if (poll.status === 'succeeded') {
