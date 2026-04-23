@@ -7,591 +7,905 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Lo-fi Studio">
 <title>Lo-fi Studio</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Unbounded:wght@400;700;900&display=swap" rel="stylesheet">
 <style>
-:root {
-  --bg:       #0D0C14;
-  --surface:  #13121E;
-  --card:     #1A1928;
-  --border:   #2A2840;
-  --accent:   #7B6EF6;
-  --accent2:  #1ED17A;
-  --warn:     #F0A832;
-  --err:      #F05060;
-  --text:     #EAE8FF;
-  --sub:      #7A789A;
-  --dim:      #3E3C5A;
-  --r:        12px;
+:root{
+  --bg:#080B12;
+  --s1:#0E1220;
+  --s2:#141825;
+  --bd:#1E2535;
+  --a1:#4DFFA0;
+  --a2:#4D8FFF;
+  --a3:#FF4D8F;
+  --tx:#E8EEFF;
+  --sub:#5A6380;
+  --dim:#2A3048;
+  --warn:#FFB84D;
+  --err:#FF5A5A;
+  --r:14px;
+  --mono:'Space Mono',monospace;
+  --display:'Unbounded',sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;overflow:hidden}
+html{height:100%;background:var(--bg)}
+body{
+  height:100%;height:100dvh;
+  background:var(--bg);
+  color:var(--tx);
+  font-family:var(--mono);
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+}
 
-/* ── レイアウト ── */
-.app{display:flex;flex-direction:column;height:100%;height:100dvh;max-width:420px;margin:0 auto;position:relative}
+/* ノイズテクスチャ */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  background-size:200px;
+  pointer-events:none;
+  z-index:0;
+}
 
 /* ── ヘッダー ── */
-header{
-  padding:env(safe-area-inset-top,20px) 20px 0;
-  padding-top:max(env(safe-area-inset-top),20px);
-  background:var(--bg);
+.hd{
+  padding:max(env(safe-area-inset-top),52px) 20px 0;
   flex-shrink:0;
+  position:relative;z-index:1;
 }
-.header-inner{display:flex;align-items:center;justify-content:space-between;padding-bottom:16px;border-bottom:1px solid var(--border)}
-.logo{font-size:20px;font-weight:800;letter-spacing:-.03em}
-.logo span{color:var(--accent)}
-.status-dot{width:8px;height:8px;border-radius:50%;background:var(--dim);display:inline-block;margin-right:6px;transition:background .4s}
-.status-dot.ok{background:var(--accent2)}
-.status-dot.busy{background:var(--warn);animation:pulse 1s infinite}
-.status-dot.err{background:var(--err)}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-.status-text{font-size:12px;color:var(--sub);font-family:'DM Mono',monospace}
+.hd-inner{
+  display:flex;align-items:center;justify-content:space-between;
+  padding-bottom:14px;
+  border-bottom:1px solid var(--bd);
+}
+.logo{
+  font-family:var(--display);
+  font-size:17px;font-weight:900;
+  letter-spacing:-.02em;
+}
+.logo em{color:var(--a1);font-style:normal}
+.pill{
+  display:flex;align-items:center;gap:6px;
+  background:var(--s2);
+  border:1px solid var(--bd);
+  border-radius:20px;
+  padding:5px 12px;
+  font-size:10px;color:var(--sub);
+}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--dim);transition:background .3s}
+.dot.ok{background:var(--a1);box-shadow:0 0 6px var(--a1)}
+.dot.busy{background:var(--warn);animation:blink .7s infinite}
+.dot.err{background:var(--err)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 
-/* ── タブ ── */
-.tabs{display:flex;gap:2px;padding:12px 20px;flex-shrink:0}
-.tab{flex:1;padding:8px 4px;font-size:12px;font-weight:600;color:var(--sub);background:none;border:none;border-radius:8px;cursor:pointer;transition:all .2s;letter-spacing:.02em}
-.tab.active{background:var(--card);color:var(--text)}
+/* ── タブバー ── */
+.tabs{
+  display:flex;gap:0;
+  border-bottom:1px solid var(--bd);
+  flex-shrink:0;
+  position:relative;z-index:1;
+}
+.tab{
+  flex:1;padding:12px 4px;
+  font-family:var(--display);font-size:9px;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;
+  color:var(--sub);background:none;border:none;cursor:pointer;
+  transition:color .2s;
+  position:relative;
+}
+.tab.on{color:var(--a1)}
+.tab.on::after{
+  content:'';position:absolute;bottom:0;left:20%;right:20%;
+  height:2px;background:var(--a1);border-radius:1px;
+}
 
-/* ── コンテンツ ── */
-.pages{flex:1;overflow:hidden;position:relative}
-.page{position:absolute;inset:0;overflow-y:auto;padding:0 20px 80px;opacity:0;pointer-events:none;transition:opacity .2s}
-.page.active{opacity:1;pointer-events:all}
+/* ── ページ ── */
+.pages{flex:1;overflow:hidden;position:relative;z-index:1}
+.page{
+  position:absolute;inset:0;
+  overflow-y:auto;
+  padding:16px 16px max(env(safe-area-inset-bottom),80px);
+  opacity:0;pointer-events:none;
+  transition:opacity .15s;
+}
+.page.on{opacity:1;pointer-events:all}
+.page::-webkit-scrollbar{display:none}
 
 /* ── カード ── */
-.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px}
-.card-title{font-size:11px;font-weight:700;color:var(--sub);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px}
+.card{
+  background:var(--s1);
+  border:1px solid var(--bd);
+  border-radius:var(--r);
+  padding:16px;
+  margin-bottom:12px;
+}
+.ct{
+  font-family:var(--display);
+  font-size:8px;font-weight:700;
+  letter-spacing:.12em;text-transform:uppercase;
+  color:var(--sub);margin-bottom:14px;
+}
 
 /* ── メトリクス ── */
-.metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
-.metric{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px}
-.metric-label{font-size:10px;color:var(--sub);font-family:'DM Mono',monospace;margin-bottom:4px}
-.metric-value{font-size:24px;font-weight:800;letter-spacing:-.03em}
-.metric-sub{font-size:10px;color:var(--accent2);margin-top:2px;font-family:'DM Mono',monospace}
+.mets{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
+.met{
+  background:var(--s2);border:1px solid var(--bd);
+  border-radius:10px;padding:12px 10px;
+}
+.ml{font-size:9px;color:var(--sub);margin-bottom:6px;letter-spacing:.04em}
+.mv{font-family:var(--display);font-size:20px;font-weight:900;line-height:1}
+.ms{font-size:9px;color:var(--a1);margin-top:4px}
 
 /* ── ステップ ── */
-.step{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:10px;border:1px solid var(--border);margin-bottom:6px;transition:all .3s}
-.step.done{border-color:color-mix(in srgb,var(--accent2) 30%,transparent)}
-.step.active{border-color:color-mix(in srgb,var(--accent) 50%,transparent);background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.steps{display:flex;flex-direction:column;gap:6px}
+.step{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 12px;border-radius:10px;
+  border:1px solid var(--bd);
+  transition:all .3s;
+}
+.step.active{border-color:color-mix(in srgb,var(--a2) 50%,transparent);background:color-mix(in srgb,var(--a2) 5%,transparent)}
+.step.done{border-color:color-mix(in srgb,var(--a1) 40%,transparent)}
 .step.error{border-color:color-mix(in srgb,var(--err) 40%,transparent)}
-.step-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;transition:background .3s}
-.step-dot.wait{background:var(--dim)}
-.step-dot.active{background:var(--warn);box-shadow:0 0 8px var(--warn);animation:pulse .8s infinite}
-.step-dot.done{background:var(--accent2)}
-.step-dot.error{background:var(--err)}
-.step-name{font-size:13px;font-weight:600;flex:1;transition:color .3s}
-.step-name.active{color:var(--text)}
-.step-name.dim{color:var(--sub)}
-.step-badge{font-size:10px;font-family:'DM Mono',monospace;color:var(--sub);transition:color .3s}
-.step-badge.ok{color:var(--accent2)}
-.step-badge.active{color:var(--warn)}
-.step-badge.err{color:var(--err)}
+.sd{width:8px;height:8px;border-radius:50%;flex-shrink:0;transition:all .3s}
+.sd.wait{background:var(--dim)}
+.sd.active{background:var(--warn);box-shadow:0 0 8px var(--warn);animation:blink .6s infinite}
+.sd.done{background:var(--a1);box-shadow:0 0 6px var(--a1)}
+.sd.error{background:var(--err)}
+.sn{flex:1}
+.sn-main{font-size:12px;font-weight:700;transition:color .3s}
+.sn-sub{font-size:9px;color:var(--sub);margin-top:2px}
+.sbadge{font-size:9px;color:var(--sub);transition:color .3s}
+.sbadge.ok{color:var(--a1)}
+.sbadge.active{color:var(--warn)}
+.sbadge.err{color:var(--err)}
 
 /* ── プログレス ── */
-.progress-wrap{margin:14px 0 18px;position:relative}
-.progress-track{height:4px;background:var(--border);border-radius:2px;overflow:hidden}
-.progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:2px;transition:width .6s cubic-bezier(.4,0,.2,1);width:0%}
-.progress-label{display:flex;justify-content:space-between;margin-top:6px}
-.progress-pct{font-size:11px;font-family:'DM Mono',monospace;color:var(--sub)}
+.prog-wrap{margin:14px 0}
+.prog-track{height:3px;background:var(--bd);border-radius:2px;overflow:hidden}
+.prog-bar{
+  height:100%;width:0%;
+  background:linear-gradient(90deg,var(--a2),var(--a1));
+  border-radius:2px;
+  transition:width .8s cubic-bezier(.4,0,.2,1);
+  box-shadow:0 0 8px var(--a1);
+}
+.prog-row{display:flex;justify-content:space-between;margin-top:5px}
+.prog-n{font-size:10px;color:var(--sub)}
 
 /* ── ログ ── */
-.log-wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;height:140px;overflow-y:auto;font-family:'DM Mono',monospace;font-size:11px;line-height:1.7}
-.log-line{color:var(--sub)}
-.log-line.ok{color:var(--accent2)}
-.log-line.info{color:var(--accent)}
-.log-line.warn{color:var(--warn)}
-.log-line.err{color:var(--err)}
+.logbox{
+  background:var(--bg);border:1px solid var(--bd);
+  border-radius:10px;padding:10px 12px;
+  height:120px;overflow-y:auto;
+  font-size:10px;line-height:1.8;
+}
+.logbox::-webkit-scrollbar{display:none}
+.ll{color:var(--sub)}
+.ll.ok{color:var(--a1)}
+.ll.info{color:var(--a2)}
+.ll.warn{color:var(--warn)}
+.ll.err{color:var(--err)}
 
 /* ── ボタン ── */
-.btn{width:100%;padding:15px;border-radius:10px;border:none;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;letter-spacing:.02em;cursor:pointer;transition:all .2s;margin-top:14px}
-.btn-primary{background:var(--accent);color:#fff}
-.btn-primary:active{transform:scale(.98);background:color-mix(in srgb,var(--accent) 80%,white)}
-.btn-primary:disabled{background:var(--dim);color:var(--sub);cursor:not-allowed;transform:none}
-.btn-secondary{background:var(--surface);color:var(--sub);border:1px solid var(--border);margin-top:8px}
-.btn-secondary:active{transform:scale(.98)}
+.btn{
+  width:100%;padding:16px;
+  border-radius:10px;border:none;
+  font-family:var(--display);font-size:11px;font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;
+  cursor:pointer;transition:all .15s;
+  margin-top:12px;
+}
+.btn-run{
+  background:var(--a1);color:#080B12;
+  box-shadow:0 0 20px color-mix(in srgb,var(--a1) 30%,transparent);
+}
+.btn-run:active{transform:scale(.97);box-shadow:none}
+.btn-run:disabled{background:var(--dim);color:var(--sub);box-shadow:none;cursor:not-allowed;transform:none}
+.btn-sec{
+  background:var(--s2);color:var(--sub);
+  border:1px solid var(--bd);margin-top:8px;
+}
+.btn-sec:active{transform:scale(.97)}
 
-/* ── 設定フォーム ── */
-.field{margin-bottom:14px}
-.field label{display:block;font-size:11px;font-weight:700;color:var(--sub);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
-.field input,.field select{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;font-family:'DM Mono',monospace;color:var(--text);-webkit-appearance:none;outline:none;transition:border-color .2s}
-.field input:focus,.field select:focus{border-color:var(--accent)}
-.field input[type=password]{letter-spacing:.12em}
-.field select option{background:var(--card)}
-.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/* ── フォーム ── */
+.field{margin-bottom:12px}
+.fl{
+  display:block;font-size:9px;font-weight:700;
+  color:var(--sub);letter-spacing:.1em;text-transform:uppercase;
+  margin-bottom:6px;
+}
+.fi{
+  width:100%;background:var(--bg);
+  border:1px solid var(--bd);border-radius:8px;
+  padding:11px 12px;font-size:12px;
+  font-family:var(--mono);color:var(--tx);
+  -webkit-appearance:none;outline:none;
+  transition:border-color .2s;
+}
+.fi:focus{border-color:var(--a2)}
+.fi-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+/* ── トグル ── */
+.trow{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 0;border-bottom:1px solid var(--bd);
+}
+.trow:last-child{border-bottom:none}
+.tlabel{font-size:12px;font-weight:700}
+.tsub{font-size:10px;color:var(--sub);margin-top:2px}
+.tog{
+  width:42px;height:23px;border-radius:12px;
+  background:var(--bd);border:none;cursor:pointer;
+  position:relative;transition:background .2s;flex-shrink:0;
+}
+.tog.on{background:var(--a1)}
+.tog::after{
+  content:'';position:absolute;
+  top:3px;left:3px;
+  width:17px;height:17px;border-radius:50%;
+  background:#080B12;transition:transform .2s;
+}
+.tog.on::after{transform:translateX(19px);background:#080B12}
 
 /* ── 履歴 ── */
-.history-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
-.history-item:last-child{border-bottom:none}
-.history-thumb{width:54px;height:30px;border-radius:6px;flex-shrink:0;background:linear-gradient(135deg,var(--accent),var(--accent2))}
-.history-info{flex:1;min-width:0}
-.history-title{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.history-date{font-size:10px;color:var(--sub);font-family:'DM Mono',monospace;margin-top:2px}
-.badge{font-size:9px;font-weight:700;padding:3px 8px;border-radius:20px;background:color-mix(in srgb,var(--accent2) 15%,transparent);color:var(--accent2);flex-shrink:0;letter-spacing:.04em;text-transform:uppercase}
+.hi{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 0;border-bottom:1px solid var(--bd);
+}
+.hi:last-child{border-bottom:none}
+.hthumb{
+  width:56px;height:32px;border-radius:6px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--a2),var(--a1));
+}
+.htitle{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdate{font-size:9px;color:var(--sub);margin-top:3px}
+.hbadge{
+  font-size:8px;font-weight:700;padding:3px 8px;
+  border-radius:20px;flex-shrink:0;letter-spacing:.06em;
+  background:color-mix(in srgb,var(--a1) 12%,transparent);
+  color:var(--a1);border:1px solid color-mix(in srgb,var(--a1) 25%,transparent);
+}
 
-/* ── ボトムセーフエリア ── */
-.bottom-safe{height:env(safe-area-inset-bottom,0px);flex-shrink:0}
-
-/* ── スケジュールトグル ── */
-.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
-.toggle-row:last-child{border-bottom:none}
-.toggle-label{font-size:13px;font-weight:600}
-.toggle-sub{font-size:11px;color:var(--sub);font-family:'DM Mono',monospace;margin-top:2px}
-.toggle{width:44px;height:24px;border-radius:12px;background:var(--border);position:relative;cursor:pointer;transition:background .2s;border:none;flex-shrink:0}
-.toggle.on{background:var(--accent)}
-.toggle::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s}
-.toggle.on::after{transform:translateX(20px)}
-
-/* ── スクロールバー非表示 ── */
-.page::-webkit-scrollbar,.log-wrap::-webkit-scrollbar{display:none}
+/* ── コスト表示 ── */
+.cost-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 0;border-bottom:1px solid var(--bd);font-size:11px;
+}
+.cost-row:last-child{border-bottom:none}
+.cost-label{color:var(--sub)}
+.cost-val{font-weight:700;color:var(--tx)}
+.cost-total{color:var(--a1)}
 </style>
 </head>
 <body>
-<div class="app">
-  <header>
-    <div class="header-inner">
-      <div class="logo">Lo-fi<span>Studio</span></div>
-      <div style="display:flex;align-items:center">
-        <span class="status-dot" id="statusDot"></span>
-        <span class="status-text" id="statusText">待機中</span>
+
+<div class="hd">
+  <div class="hd-inner">
+    <div class="logo">Lo-fi<em>Studio</em></div>
+    <div class="pill">
+      <div class="dot" id="statusDot"></div>
+      <span id="statusTxt">待機中</span>
+    </div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab on" onclick="sw(0)">実行</button>
+  <button class="tab" onclick="sw(1)">設定</button>
+  <button class="tab" onclick="sw(2)">履歴</button>
+  <button class="tab" onclick="sw(3)">コスト</button>
+</div>
+
+<div class="pages">
+
+  <!-- PAGE 0: 実行 -->
+  <div class="page on" id="p0">
+    <div class="mets">
+      <div class="met">
+        <div class="ml">今月</div>
+        <div class="mv" id="mCount">0</div>
+        <div class="ms">本投稿</div>
+      </div>
+      <div class="met">
+        <div class="ml">最終</div>
+        <div class="mv" style="font-size:14px;padding-top:3px" id="mLast">—</div>
+        <div class="ms" id="mLastSub">まだなし</div>
+      </div>
+      <div class="met">
+        <div class="ml">コスト</div>
+        <div class="mv" id="mCost">¥0</div>
+        <div class="ms">今月</div>
       </div>
     </div>
-  </header>
 
-  <div class="tabs">
-    <button class="tab active" onclick="switchTab(0)">実行</button>
-    <button class="tab" onclick="switchTab(1)">設定</button>
-    <button class="tab" onclick="switchTab(2)">履歴</button>
+    <div class="card">
+      <div class="ct">パイプライン</div>
+      <div class="steps" id="stepsEl"></div>
+      <div class="prog-wrap">
+        <div class="prog-track"><div class="prog-bar" id="progBar"></div></div>
+        <div class="prog-row">
+          <span class="prog-n" id="progPct">0%</span>
+          <span class="prog-n" id="progMsg"></span>
+        </div>
+      </div>
+      <button class="btn btn-run" id="runBtn" onclick="run()">実行開始</button>
+    </div>
+
+    <div class="card">
+      <div class="ct">実行ログ</div>
+      <div class="logbox" id="logEl"></div>
+    </div>
   </div>
 
-  <div class="pages">
-
-    <!-- ── PAGE 0: ダッシュボード ── -->
-    <div class="page active" id="page0">
-      <div class="metrics">
-        <div class="metric">
-          <div class="metric-label">今月の投稿</div>
-          <div class="metric-value" id="mCount">0</div>
-          <div class="metric-sub">本</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">最終実行</div>
-          <div class="metric-value" style="font-size:16px;padding-top:4px" id="mLast">—</div>
-          <div class="metric-sub" id="mLastSub">まだなし</div>
-        </div>
+  <!-- PAGE 1: 設定 -->
+  <div class="page" id="p1">
+    <div class="card">
+      <div class="ct">API キー</div>
+      <div class="field">
+        <label class="fl">Replicate API Token</label>
+        <input class="fi" type="password" id="cfgReplicate" placeholder="r8_xxxxxxxxxxxx">
       </div>
-
-      <div class="card">
-        <div class="card-title">パイプライン</div>
-        <div id="steps">
-          <!-- JS で生成 -->
-        </div>
-        <div class="progress-wrap">
-          <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
-          <div class="progress-label">
-            <span class="progress-pct" id="progressPct">0%</span>
-            <span class="progress-pct" id="progressEta"></span>
-          </div>
-        </div>
-        <button class="btn btn-primary" id="runBtn" onclick="runPipeline()">今すぐ実行</button>
+      <div class="field">
+        <label class="fl">YouTube Client ID</label>
+        <input class="fi" type="text" id="cfgYtClientId" placeholder="xxxxx.apps.googleusercontent.com" style="font-size:10px">
       </div>
-
-      <div class="card">
-        <div class="card-title">ログ</div>
-        <div class="log-wrap" id="logBox"></div>
+      <div class="field">
+        <label class="fl">YouTube Client Secret</label>
+        <input class="fi" type="text" id="cfgYtSecret" placeholder="GOCSPX-xxxxx">
+      </div>
+      <div class="field">
+        <label class="fl">YouTube Refresh Token</label>
+        <input class="fi" type="text" id="cfgYtRefresh" placeholder="1//xxxxx" style="font-size:10px">
       </div>
     </div>
 
-    <!-- ── PAGE 1: 設定 ── -->
-    <div class="page" id="page1">
-      <div class="card">
-        <div class="card-title">API キー</div>
+    <div class="card">
+      <div class="ct">生成パラメータ</div>
+      <div class="fi-row">
         <div class="field">
-          <label>Replicate API Token</label>
-          <input type="password" id="cfgReplicate" placeholder="r8_xxxxxxxxxxxx">
+          <label class="fl">曲数</label>
+          <select class="fi" id="cfgTracks">
+            <option value="7">7曲</option>
+            <option value="9" selected>9曲</option>
+            <option value="12">12曲</option>
+          </select>
         </div>
         <div class="field">
-          <label>YouTube Credentials JSON パス</label>
-          <input type="text" id="cfgYtCreds" placeholder="credentials.json">
+          <label class="fl">動画の長さ</label>
+          <select class="fi" id="cfgDuration">
+            <option value="3600">1時間</option>
+            <option value="7200" selected>2時間</option>
+            <option value="10800">3時間</option>
+          </select>
         </div>
       </div>
-
-      <div class="card">
-        <div class="card-title">生成パラメータ</div>
-        <div class="field-row">
-          <div class="field">
-            <label>MusicGen</label>
-            <select id="cfgModel">
-              <option value="musicgen-small">small（高速）</option>
-              <option value="musicgen-medium">medium</option>
-              <option value="musicgen-large">large（高品質）</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>曲数</label>
-            <select id="cfgTracks">
-              <option value="7">7曲</option>
-              <option value="9" selected>9曲</option>
-              <option value="12">12曲</option>
-            </select>
-          </div>
+      <div class="fi-row">
+        <div class="field">
+          <label class="fl">MusicGen</label>
+          <select class="fi" id="cfgModel">
+            <option value="facebook/musicgen-small">small</option>
+            <option value="facebook/musicgen-medium" selected>medium</option>
+            <option value="facebook/musicgen-stereo-large">large</option>
+          </select>
         </div>
-        <div class="field-row">
-          <div class="field">
-            <label>動画の長さ</label>
-            <select id="cfgDuration">
-              <option value="3600">1時間</option>
-              <option value="7200" selected>2時間</option>
-              <option value="10800">3時間</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>公開設定</label>
-            <select id="cfgPrivacy">
-              <option value="public">公開</option>
-              <option value="unlisted">限定公開</option>
-              <option value="private">非公開</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">スケジュール</div>
-        <div class="toggle-row">
-          <div>
-            <div class="toggle-label">毎日自動実行</div>
-            <div class="toggle-sub" id="scheduleTime">—</div>
-          </div>
-          <button class="toggle" id="schedToggle" onclick="toggleSchedule()"></button>
-        </div>
-        <div class="field" style="margin-top:14px">
-          <label>実行時刻</label>
-          <input type="time" id="cfgScheduleTime" value="03:00">
-        </div>
-      </div>
-
-      <button class="btn btn-primary" onclick="saveConfig()">設定を保存</button>
-      <button class="btn btn-secondary" onclick="doYouTubeAuth()">YouTube 認証（初回）</button>
-    </div>
-
-    <!-- ── PAGE 2: 履歴 ── -->
-    <div class="page" id="page2">
-      <div class="card" id="historyCard">
-        <div class="card-title">投稿履歴</div>
-        <div id="historyList">
-          <p style="color:var(--sub);font-size:13px;text-align:center;padding:24px 0">まだ投稿がありません</p>
+        <div class="field">
+          <label class="fl">公開設定</label>
+          <select class="fi" id="cfgPrivacy">
+            <option value="public">公開</option>
+            <option value="unlisted">限定公開</option>
+            <option value="private">非公開</option>
+          </select>
         </div>
       </div>
     </div>
 
+    <div class="card">
+      <div class="ct">スケジュール</div>
+      <div class="trow">
+        <div>
+          <div class="tlabel">毎日自動実行</div>
+          <div class="tsub" id="schedLabel">オフ</div>
+        </div>
+        <button class="tog" id="schedTog" onclick="toggleSched()"></button>
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label class="fl">実行時刻</label>
+        <input class="fi" type="time" id="cfgSchedTime" value="03:00">
+      </div>
+    </div>
+
+    <button class="btn btn-run" onclick="saveCfg()">設定を保存</button>
+    <button class="btn btn-sec" onclick="doAuth()">YouTube 認証ガイドを見る</button>
   </div>
-  <div class="bottom-safe"></div>
+
+  <!-- PAGE 2: 履歴 -->
+  <div class="page" id="p2">
+    <div class="card">
+      <div class="ct">投稿履歴</div>
+      <div id="histList">
+        <div style="text-align:center;padding:32px 0;color:var(--sub);font-size:12px">
+          まだ投稿がありません
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE 3: コスト -->
+  <div class="page" id="p3">
+    <div class="card">
+      <div class="ct">1本あたりの費用（目安）</div>
+      <div class="cost-row"><span class="cost-label">MusicGen × 9曲</span><span class="cost-val">約 $0.36</span></div>
+      <div class="cost-row"><span class="cost-label">FLUX 画像生成</span><span class="cost-val">約 $0.003</span></div>
+      <div class="cost-row"><span class="cost-label">ffmpeg（Cloudflare）</span><span class="cost-val">無料</span></div>
+      <div class="cost-row"><span class="cost-label">YouTube API</span><span class="cost-val">無料</span></div>
+      <div class="cost-row" style="border-top:1px solid var(--bd);margin-top:4px;padding-top:12px">
+        <span class="cost-label" style="font-weight:700">合計 / 1本</span>
+        <span class="cost-val cost-total">約 $0.36（約55円）</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ct">月間コスト試算</div>
+      <div class="cost-row"><span class="cost-label">月10本投稿</span><span class="cost-val">約 $3.6（約540円）</span></div>
+      <div class="cost-row"><span class="cost-label">月30本投稿</span><span class="cost-val">約 $10.8（約1,620円）</span></div>
+      <div class="cost-row"><span class="cost-label">月60本投稿（毎日2本）</span><span class="cost-val">約 $21.6（約3,240円）</span></div>
+    </div>
+    <div class="card">
+      <div class="ct">今月の実績</div>
+      <div class="cost-row"><span class="cost-label">投稿本数</span><span class="cost-val" id="costCount">0 本</span></div>
+      <div class="cost-row"><span class="cost-label">推定コスト</span><span class="cost-val cost-total" id="costTotal">$0.00</span></div>
+    </div>
+  </div>
+
 </div>
 
 <script>
-// ── 状態管理 ─────────────────────────────────────
-const STEP_DEFS = [
-  {key:'music',  name:'音楽生成',          sub:'MusicGen'},
-  {key:'audio',  name:'2時間オーディオ結合', sub:'ffmpeg'},
-  {key:'image',  name:'画像生成',          sub:'Replicate API'},
-  {key:'video',  name:'動画エンコード',     sub:'ffmpeg Ken Burns'},
-  {key:'upload', name:'YouTube アップロード',sub:'YouTube Data API'},
+// ── 定数 ─────────────────────────────────────────────
+const STEPS = [
+  {key:'music',  name:'音楽生成',        sub:'Replicate MusicGen API'},
+  {key:'audio',  name:'オーディオ結合',  sub:'Cloudflare Workers'},
+  {key:'image',  name:'画像生成',        sub:'Replicate FLUX API'},
+  {key:'video',  name:'動画生成',        sub:'Cloudflare Workers ffmpeg'},
+  {key:'upload', name:'YouTube投稿',     sub:'YouTube Data API v3'},
 ];
+const THEMES = [
+  'Late Night Study Session ☕',
+  'Rainy Day Vibes 🌧️',
+  'Cozy Cafe Atmosphere ☕',
+  'Midnight City Lights 🌃',
+  'Peaceful Morning ☀️',
+];
+const LOFI_PROMPTS = [
+  'lo-fi hip hop, chill beats, piano melody, vinyl crackle, soft drums, relaxing',
+  'lo-fi jazz, mellow saxophone, warm bass, city rain ambience, cozy cafe',
+  'lo-fi chillhop, guitar plucks, soft synth pad, gentle percussion, late night',
+  'lo-fi ambient, atmospheric pads, slow tempo, nature sounds, peaceful',
+  'lo-fi soul, electric piano, smooth groove, nostalgic feeling, warm analog',
+  'lo-fi boombap, muted trumpet, dusty samples, headnod beat, classic hip hop',
+  'lo-fi study beats, kalimba melody, rain drops, white noise, focus music',
+  'lo-fi bedroom pop, dreamy, tape hiss, soft kick drum, aesthetic vibes',
+  'lo-fi winter, music box, snow atmosphere, gentle strings, peaceful solitude',
+];
+const IMG_PROMPTS = [
+  'cozy anime girl studying at desk, late night, city view window, warm lamp, lo-fi aesthetic, soft colors, illustration',
+  'japanese cafe interior, rainy window, warm lighting, plants, books, peaceful, anime style',
+  'rooftop at sunset, city skyline, girl with headphones, golden hour, dreamy aesthetic, illustration',
+];
+const COST_PER_VIDEO = 0.36;
 
-let state = {
-  running: false,
-  progress: 0,
-  stepStates: ['wait','wait','wait','wait','wait'],
-  stepLabels: ['待機中','待機中','待機中','待機中','待機中'],
-  logs: [],
-};
+// ── 状態 ────────────────────────────────────────────
+let running = false;
+let schedTimer = null;
+let schedOn = false;
 
-let config = loadConfig();
-let history = loadHistory();
-let scheduleEnabled = false;
-let scheduleTimer = null;
-
-// ── 初期化 ────────────────────────────────────────
+// ── 初期化 ──────────────────────────────────────────
 window.onload = () => {
   renderSteps();
+  applyCfg();
   renderHistory();
-  applyConfig();
   updateMetrics();
-  checkEnv();
 };
 
+// ── タブ切替 ─────────────────────────────────────────
+function sw(i) {
+  document.querySelectorAll('.page').forEach((p,j) => p.classList.toggle('on', i===j));
+  document.querySelectorAll('.tab').forEach((t,j) => t.classList.toggle('on', i===j));
+}
+
+// ── ステップ描画 ─────────────────────────────────────
 function renderSteps() {
-  const container = document.getElementById('steps');
-  container.innerHTML = STEP_DEFS.map((s,i) => `
-    <div class="step" id="step${i}" data-state="wait">
-      <div class="step-dot wait" id="dot${i}"></div>
-      <div style="flex:1">
-        <div class="step-name dim" id="stepName${i}">${s.name}</div>
-        <div style="font-size:10px;color:var(--dim);font-family:'DM Mono',monospace;margin-top:1px">${s.sub}</div>
+  document.getElementById('stepsEl').innerHTML = STEPS.map((s,i) => `
+    <div class="step" id="step${i}">
+      <div class="sd wait" id="sd${i}"></div>
+      <div class="sn">
+        <div class="sn-main" id="sn${i}" style="color:var(--sub)">${s.name}</div>
+        <div class="sn-sub">${s.sub}</div>
       </div>
-      <div class="step-badge" id="stepBadge${i}">待機中</div>
+      <div class="sbadge" id="sb${i}">待機中</div>
     </div>
   `).join('');
 }
 
-// ── タブ切替 ──────────────────────────────────────
-function switchTab(idx) {
-  document.querySelectorAll('.page').forEach((p,i) => p.classList.toggle('active', i===idx));
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i===idx));
+function setStep(i, state, label) {
+  const step = document.getElementById('step'+i);
+  const sd   = document.getElementById('sd'+i);
+  const sn   = document.getElementById('sn'+i);
+  const sb   = document.getElementById('sb'+i);
+  step.className = 'step ' + (state==='active'?'active':state==='done'?'done':state==='error'?'error':'');
+  sd.className   = 'sd ' + state;
+  sn.style.color = state==='wait' ? 'var(--sub)' : 'var(--tx)';
+  sb.className   = 'sbadge ' + (state==='done'?'ok':state==='active'?'active':state==='error'?'err':'');
+  sb.textContent = label;
 }
 
-// ── パイプライン実行 ──────────────────────────────
-async function runPipeline() {
-  if (state.running) return;
-  const cfg = collectConfig();
-  if (!cfg.replicate || cfg.replicate.startsWith('r8_xxxx')) {
-    addLog('Replicate API トークンを設定タブで入力してください', 'err');
-    switchTab(1);
-    return;
-  }
-
-  state.running = true;
-  setStatus('busy', '実行中...');
-  document.getElementById('runBtn').disabled = true;
-  document.getElementById('runBtn').textContent = '実行中...';
-
-  // リセット
-  for(let i=0;i<5;i++) setStepState(i,'wait','待機中');
-  setProgress(0,'');
-  state.logs = [];
-  document.getElementById('logBox').innerHTML = '';
-
-  const steps = [
-    ['music',  '音楽生成中...',          ()=>simulateStep('music', 8000,  cfg)],
-    ['audio',  'オーディオ結合中...',    ()=>simulateStep('audio', 4000,  cfg)],
-    ['image',  '画像生成中...',          ()=>simulateStep('image', 5000,  cfg)],
-    ['video',  '動画エンコード中...',    ()=>simulateStep('video', 12000, cfg)],
-    ['upload', 'YouTubeアップロード中...', ()=>simulateStep('upload',6000, cfg)],
-  ];
-
-  let ok = true;
-  for(let i=0; i<steps.length; i++) {
-    const [key, msg, fn] = steps[i];
-    setStepState(i, 'active', msg);
-    setProgress(i*20, msg);
-    addLog(msg, 'info');
-    try {
-      await fn();
-      setStepState(i, 'done', '完了 ✓');
-    } catch(e) {
-      setStepState(i, 'error', 'エラー');
-      addLog('エラー: ' + e.message, 'err');
-      ok = false;
-      break;
-    }
-  }
-
-  if (ok) {
-    setProgress(100, '完了');
-    addLog('🎉 パイプライン完了！', 'ok');
-    setStatus('ok', '完了');
-    saveHistoryEntry(cfg);
-    updateMetrics();
-  } else {
-    setStatus('err', 'エラーあり');
-  }
-
-  state.running = false;
-  const btn = document.getElementById('runBtn');
-  btn.disabled = false;
-  btn.textContent = ok ? '再実行' : '再試行';
+function setProgress(pct, msg) {
+  document.getElementById('progBar').style.width = pct + '%';
+  document.getElementById('progPct').textContent = Math.round(pct) + '%';
+  document.getElementById('progMsg').textContent = msg;
 }
 
-// ── ステップシミュレーション（実際の呼び出しに差し替え可能） ──
-function simulateStep(key, ms, cfg) {
-  return new Promise((resolve, reject) => {
-    const msgs = {
-      music:  ['MusicGen モデルをロード中...','lo-fi プロンプト生成中...','track_01.wav 生成完了','track_05.wav 生成完了','全曲生成完了（9曲）'],
-      audio:  ['concat_list.txt 作成中...','ffmpeg concat 実行中...','audio_2h.mp3 生成完了'],
-      image:  ['Replicate API 呼び出し中...','FLUX 画像生成中...','background.png 保存完了'],
-      video:  ['ffmpeg Ken Burns フィルター適用中...','1920x1080 エンコード中...','lofi_2h.mp4 完成'],
-      upload: ['YouTube API 認証確認...','アップロード開始（約2GB）...','アップロード完了！'],
-    };
-    const lines = msgs[key] || [];
-    let i = 0;
-    const interval = ms / (lines.length + 1);
-    const timer = setInterval(() => {
-      if (i < lines.length) addLog(lines[i++], '');
-      else {
-        clearInterval(timer);
-        resolve();
-      }
-    }, interval);
-  });
+function setStatus(type, txt) {
+  document.getElementById('statusDot').className = 'dot ' + type;
+  document.getElementById('statusTxt').textContent = txt;
 }
 
-// ── UI更新ヘルパー ────────────────────────────────
-function setStepState(idx, s, label) {
-  const step  = document.getElementById('step'+idx);
-  const dot   = document.getElementById('dot'+idx);
-  const name  = document.getElementById('stepName'+idx);
-  const badge = document.getElementById('stepBadge'+idx);
-  if (!step) return;
-
-  step.className = 'step ' + (s==='done'?'done':s==='active'?'active':s==='error'?'error':'');
-  dot.className = 'step-dot ' + s;
-  name.className = 'step-name ' + (s==='wait'?'dim':'');
-  badge.className = 'step-badge ' + (s==='done'?'ok':s==='active'?'active':s==='error'?'err':'');
-  badge.textContent = label;
-}
-
-function setProgress(pct, eta) {
-  document.getElementById('progressBar').style.width = pct+'%';
-  document.getElementById('progressPct').textContent = Math.round(pct)+'%';
-  document.getElementById('progressEta').textContent = eta;
-}
-
-function addLog(msg, cls='') {
-  const box = document.getElementById('logBox');
-  const ts = new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  const line = document.createElement('div');
-  line.className = 'log-line ' + cls;
-  line.textContent = `[${ts}] ${msg}`;
-  box.appendChild(line);
+function log(msg, cls='') {
+  const box = document.getElementById('logEl');
+  const ts  = new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const d   = document.createElement('div');
+  d.className = 'll ' + cls;
+  d.textContent = `[${ts}] ${msg}`;
+  box.appendChild(d);
   box.scrollTop = box.scrollHeight;
 }
 
-function setStatus(type, text) {
-  const dot = document.getElementById('statusDot');
-  const txt = document.getElementById('statusText');
-  dot.className = 'status-dot ' + type;
-  txt.textContent = text;
-}
+// ── メイン実行 ───────────────────────────────────────
+async function run() {
+  if (running) return;
+  const cfg = getCfg();
 
-function updateMetrics() {
-  const h = loadHistory();
-  const thisMonth = h.filter(x => x.date && x.date.startsWith(new Date().toISOString().slice(0,7)));
-  document.getElementById('mCount').textContent = thisMonth.length;
-  if (h.length > 0) {
-    document.getElementById('mLast').textContent = h[0].date.slice(5,10);
-    document.getElementById('mLastSub').textContent = h[0].date.slice(11,16);
+  if (!cfg.replicate || cfg.replicate.startsWith('r8_xxxx')) {
+    alert('設定タブで Replicate API トークンを入力してください');
+    sw(1); return;
+  }
+  if (!cfg.ytRefresh) {
+    alert('設定タブで YouTube Refresh Token を入力してください');
+    sw(1); return;
+  }
+
+  running = true;
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('runBtn').textContent = '実行中...';
+  setStatus('busy', '実行中');
+  document.getElementById('logEl').innerHTML = '';
+  STEPS.forEach((_,i) => setStep(i,'wait','待機中'));
+  setProgress(0,'');
+
+  const pipeline = [
+    ['music',  '音楽生成中...',        () => stepMusic(cfg)],
+    ['audio',  'オーディオ結合中...',  () => stepAudio(cfg)],
+    ['image',  '画像生成中...',        () => stepImage(cfg)],
+    ['video',  '動画生成中...',        () => stepVideo(cfg)],
+    ['upload', 'YouTube投稿中...',     () => stepUpload(cfg)],
+  ];
+
+  let ok = true;
+  let ctx = {};
+  for (let i=0; i<pipeline.length; i++) {
+    const [,msg, fn] = pipeline[i];
+    setStep(i, 'active', msg.replace('中...',''));
+    setProgress(i*20, msg);
+    log(msg, 'info');
+    try {
+      const res = await fn(ctx);
+      Object.assign(ctx, res || {});
+      setStep(i, 'done', '完了 ✓');
+    } catch(e) {
+      setStep(i, 'error', 'エラー');
+      log('エラー: ' + e.message, 'err');
+      ok = false; break;
+    }
+  }
+
+  running = false;
+  const btn = document.getElementById('runBtn');
+  btn.disabled = false;
+  btn.textContent = ok ? '再実行' : '再試行';
+
+  if (ok) {
+    setProgress(100, '完了！');
+    setStatus('ok', '完了');
+    log('🎉 YouTube投稿完了！', 'ok');
+    saveHistory();
+    updateMetrics();
+  } else {
+    setStatus('err', 'エラー');
   }
 }
 
-// ── 設定 ────────────────────────────────────────
-function collectConfig() {
+// ── STEP 1: 音楽生成（Replicate MusicGen） ──────────
+async function stepMusic(cfg) {
+  const tracks = parseInt(cfg.tracks);
+  const audioUrls = [];
+  const prompts = LOFI_PROMPTS.slice(0, tracks);
+
+  for (let i=0; i<prompts.length; i++) {
+    log(`  曲 ${i+1}/${tracks} 生成中...`);
+    const url = await replicateRun(cfg.replicate, {
+      version: 'b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38',
+      input: {
+        prompt: prompts[i],
+        model_version: cfg.model || 'stereo-melody-large',
+        duration: 30,
+        output_format: 'mp3',
+      }
+    });
+    audioUrls.push(url);
+    log(`  ✓ track_${String(i+1).padStart(2,'0')}.mp3`, 'ok');
+  }
+  return { audioUrls };
+}
+
+// ── STEP 2: オーディオ結合（Cloudflare Worker） ──────
+async function stepAudio({ audioUrls, ...cfg }) {
+  log('  Cloudflare Worker でオーディオ結合中...');
+  const duration = parseInt(getCfg().duration);
+
+  const res = await fetch('https://lofi-audio-merge.YOUR_SUBDOMAIN.workers.dev', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ audioUrls, targetDuration: duration }),
+  });
+  if (!res.ok) throw new Error(`audio merge failed: ${res.status}`);
+  const { audioUrl } = await res.json();
+  log('  ✓ 2時間オーディオ結合完了', 'ok');
+  return { longAudioUrl: audioUrl };
+}
+
+// ── STEP 3: 画像生成（Replicate FLUX） ───────────────
+async function stepImage(cfg) {
+  log('  FLUX で lo-fi 画像生成中...');
+  const prompt = IMG_PROMPTS[Math.floor(Math.random()*IMG_PROMPTS.length)];
+  const replicateCfg = getCfg();
+  const url = await replicateRun(replicateCfg.replicate, {
+    version: 'bf53bdb93d739c9c915091cfa68aaf29cf27a37e3a51c851d64a0d5765e14b60',
+    input: { prompt, width: 1920, height: 1080, num_outputs: 1 }
+  });
+  log('  ✓ 画像生成完了', 'ok');
+  return { imageUrl: url };
+}
+
+// ── STEP 4: 動画生成（Cloudflare Worker + ffmpeg） ───
+async function stepVideo({ longAudioUrl, imageUrl }) {
+  log('  Cloudflare Worker で動画生成中（Ken Burns）...');
+  const duration = parseInt(getCfg().duration);
+
+  const res = await fetch('https://lofi-video-gen.YOUR_SUBDOMAIN.workers.dev', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ audioUrl: longAudioUrl, imageUrl, duration }),
+  });
+  if (!res.ok) throw new Error(`video gen failed: ${res.status}`);
+  const { videoUrl } = await res.json();
+  log('  ✓ 動画生成完了', 'ok');
+  return { videoUrl };
+}
+
+// ── STEP 5: YouTube 投稿 ─────────────────────────────
+async function stepUpload({ videoUrl }) {
+  log('  YouTube アクセストークン取得中...');
+  const cfg = getCfg();
+
+  // Refresh Token → Access Token
+  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id:     cfg.ytClientId,
+      client_secret: cfg.ytSecret,
+      refresh_token: cfg.ytRefresh,
+      grant_type:    'refresh_token',
+    }),
+  });
+  const { access_token } = await tokenRes.json();
+  if (!access_token) throw new Error('YouTube認証失敗。Refresh Tokenを確認してください。');
+
+  const theme = THEMES[Math.floor(Math.random()*THEMES.length)];
+  const date  = new Date().toLocaleDateString('ja-JP');
+
+  // 動画メタデータ
+  const meta = {
+    snippet: {
+      title: `Lo-fi Chill Music 🎵 ${theme} [${date}]`,
+      description: `✨ ${theme}\n\n🎵 Lo-fi chill music for studying, relaxing, and sleeping.\n\n#lofi #chillbeats #studymusic #relaxingmusic`,
+      categoryId: '10',
+      tags: ['lofi','chill','study music','relaxing music','lofi hip hop'],
+    },
+    status: { privacyStatus: cfg.privacy, selfDeclaredMadeForKids: false },
+  };
+
+  log('  動画アップロード中（Resumable Upload）...');
+
+  // Resumable Upload 初期化
+  const initRes = await fetch(
+    'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${access_token}`,
+        'Content-Type': 'application/json',
+        'X-Upload-Content-Type': 'video/mp4',
+      },
+      body: JSON.stringify(meta),
+    }
+  );
+  const uploadUrl = initRes.headers.get('Location');
+  if (!uploadUrl) throw new Error('YouTube Upload URL取得失敗');
+
+  // 動画データを取得してアップロード
+  const videoBlob = await fetch(videoUrl).then(r => r.blob());
+  const uploadRes = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'video/mp4' },
+    body: videoBlob,
+  });
+  if (!uploadRes.ok) throw new Error(`Upload failed: ${uploadRes.status}`);
+  const { id } = await uploadRes.json();
+  log(`  ✓ 投稿完了: https://youtu.be/${id}`, 'ok');
+  return { videoId: id };
+}
+
+// ── Replicate API ヘルパー ───────────────────────────
+async function replicateRun(token, body) {
+  const res = await fetch('https://api.replicate.com/v1/predictions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Token ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const pred = await res.json();
+  const id = pred.id;
+  if (!id) throw new Error('Replicate prediction failed: ' + JSON.stringify(pred));
+
+  for (let i=0; i<120; i++) {
+    await sleep(5000);
+    const poll = await fetch(`https://api.replicate.com/v1/predictions/${id}`, {
+      headers: { Authorization: `Token ${token}` },
+    }).then(r => r.json());
+    if (poll.status === 'succeeded') {
+      return Array.isArray(poll.output) ? poll.output[0] : poll.output;
+    }
+    if (poll.status === 'failed') throw new Error('Replicate failed: ' + poll.error);
+  }
+  throw new Error('Replicate timeout');
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── 設定 ────────────────────────────────────────────
+function getCfg() {
   return {
     replicate:  document.getElementById('cfgReplicate').value.trim(),
-    ytCreds:    document.getElementById('cfgYtCreds').value.trim(),
-    model:      document.getElementById('cfgModel').value,
+    ytClientId: document.getElementById('cfgYtClientId').value.trim(),
+    ytSecret:   document.getElementById('cfgYtSecret').value.trim(),
+    ytRefresh:  document.getElementById('cfgYtRefresh').value.trim(),
     tracks:     document.getElementById('cfgTracks').value,
     duration:   document.getElementById('cfgDuration').value,
+    model:      document.getElementById('cfgModel').value,
     privacy:    document.getElementById('cfgPrivacy').value,
-    schedTime:  document.getElementById('cfgScheduleTime').value,
+    schedTime:  document.getElementById('cfgSchedTime').value,
   };
 }
 
-function saveConfig() {
-  const cfg = collectConfig();
-  localStorage.setItem('lofi_config', JSON.stringify(cfg));
-  addLog('設定を保存しました', 'ok');
+function saveCfg() {
+  localStorage.setItem('lofi_cfg', JSON.stringify(getCfg()));
+  log('設定を保存しました', 'ok');
   alert('設定を保存しました！');
 }
 
-function loadConfig() {
-  try { return JSON.parse(localStorage.getItem('lofi_config') || '{}'); } catch { return {}; }
+function applyCfg() {
+  const c = JSON.parse(localStorage.getItem('lofi_cfg') || '{}');
+  if (c.replicate)  document.getElementById('cfgReplicate').value  = c.replicate;
+  if (c.ytClientId) document.getElementById('cfgYtClientId').value = c.ytClientId;
+  if (c.ytSecret)   document.getElementById('cfgYtSecret').value   = c.ytSecret;
+  if (c.ytRefresh)  document.getElementById('cfgYtRefresh').value  = c.ytRefresh;
+  if (c.tracks)     document.getElementById('cfgTracks').value     = c.tracks;
+  if (c.duration)   document.getElementById('cfgDuration').value   = c.duration;
+  if (c.model)      document.getElementById('cfgModel').value      = c.model;
+  if (c.privacy)    document.getElementById('cfgPrivacy').value    = c.privacy;
+  if (c.schedTime)  document.getElementById('cfgSchedTime').value  = c.schedTime;
+  if (c.replicate && !c.replicate.startsWith('r8_xxxx')) setStatus('ok','設定済み');
 }
 
-function applyConfig() {
-  const cfg = loadConfig();
-  if (cfg.replicate) document.getElementById('cfgReplicate').value = cfg.replicate;
-  if (cfg.ytCreds)   document.getElementById('cfgYtCreds').value = cfg.ytCreds;
-  if (cfg.model)     document.getElementById('cfgModel').value = cfg.model;
-  if (cfg.tracks)    document.getElementById('cfgTracks').value = cfg.tracks;
-  if (cfg.duration)  document.getElementById('cfgDuration').value = cfg.duration;
-  if (cfg.privacy)   document.getElementById('cfgPrivacy').value = cfg.privacy;
-  if (cfg.schedTime) document.getElementById('cfgScheduleTime').value = cfg.schedTime;
-}
-
-// ── スケジュール ────────────────────────────────
-function toggleSchedule() {
-  scheduleEnabled = !scheduleEnabled;
-  const btn = document.getElementById('schedToggle');
-  btn.classList.toggle('on', scheduleEnabled);
-  const timeStr = document.getElementById('cfgScheduleTime').value;
-  document.getElementById('scheduleTime').textContent =
-    scheduleEnabled ? `毎日 ${timeStr} に自動実行` : '—';
-  if (scheduleEnabled) {
-    addLog(`スケジュール設定: 毎日 ${timeStr}`, 'ok');
-    setupSchedule(timeStr);
+// ── スケジュール ─────────────────────────────────────
+function toggleSched() {
+  schedOn = !schedOn;
+  document.getElementById('schedTog').classList.toggle('on', schedOn);
+  const t = document.getElementById('cfgSchedTime').value;
+  document.getElementById('schedLabel').textContent = schedOn ? `毎日 ${t} に自動実行` : 'オフ';
+  if (schedOn) {
+    log(`スケジュール設定: 毎日 ${t}`, 'ok');
+    planSched(t);
   } else {
-    if (scheduleTimer) clearTimeout(scheduleTimer);
-    addLog('スケジュールを解除しました', 'warn');
+    clearTimeout(schedTimer);
+    log('スケジュールを解除しました', 'warn');
   }
 }
 
-function setupSchedule(timeStr) {
-  const [h, m] = timeStr.split(':').map(Number);
-  const now = new Date();
-  const next = new Date();
-  next.setHours(h, m, 0, 0);
-  if (next <= now) next.setDate(next.getDate() + 1);
-  const ms = next - now;
-  scheduleTimer = setTimeout(() => {
-    runPipeline();
-    setupSchedule(timeStr);
-  }, ms);
+function planSched(timeStr) {
+  const [h,m] = timeStr.split(':').map(Number);
+  const now = new Date(), next = new Date();
+  next.setHours(h,m,0,0);
+  if (next<=now) next.setDate(next.getDate()+1);
+  schedTimer = setTimeout(() => { run(); planSched(timeStr); }, next-now);
 }
 
-// ── YouTube 認証 ───────────────────────────────
-function doYouTubeAuth() {
-  alert('ターミナルで以下を実行してください:\n\npython3 auth_youtube.py\n\nブラウザが開くので、YouTubeアカウントでログインしてください。');
-}
-
-// ── 環境チェック ────────────────────────────────
-function checkEnv() {
-  const cfg = loadConfig();
-  if (cfg.replicate && !cfg.replicate.startsWith('r8_xxxx')) {
-    setStatus('ok', '設定済み');
-  } else {
-    setStatus('', '設定が必要');
-    addLog('設定タブで API トークンを入力してください', 'warn');
-  }
-}
-
-// ── 履歴 ────────────────────────────────────────
+// ── 履歴 ────────────────────────────────────────────
 function loadHistory() {
-  try { return JSON.parse(localStorage.getItem('lofi_history') || '[]'); } catch { return []; }
+  try { return JSON.parse(localStorage.getItem('lofi_hist') || '[]'); } catch { return []; }
 }
 
-function saveHistoryEntry(cfg) {
+function saveHistory() {
   const h = loadHistory();
-  const themes = ['Late Night Study Session','Rainy Day Vibes','Cozy Cafe Atmosphere','Midnight City Lights'];
   h.unshift({
-    title: themes[Math.floor(Math.random()*themes.length)],
+    title: THEMES[Math.floor(Math.random()*THEMES.length)],
     date: new Date().toISOString().slice(0,16).replace('T',' '),
   });
-  localStorage.setItem('lofi_history', JSON.stringify(h.slice(0,50)));
+  localStorage.setItem('lofi_hist', JSON.stringify(h.slice(0,50)));
   renderHistory();
 }
 
 function renderHistory() {
   const h = loadHistory();
-  const list = document.getElementById('historyList');
-  const colors = [
-    'linear-gradient(135deg,#7B6EF6,#1ED17A)',
-    'linear-gradient(135deg,#F0A832,#7B6EF6)',
-    'linear-gradient(135deg,#1ED17A,#7B6EF6)',
-    'linear-gradient(135deg,#F05060,#7B6EF6)',
+  const el = document.getElementById('histList');
+  const grads = [
+    'linear-gradient(135deg,#4D8FFF,#4DFFA0)',
+    'linear-gradient(135deg,#FFB84D,#4D8FFF)',
+    'linear-gradient(135deg,#4DFFA0,#FF4D8F)',
+    'linear-gradient(135deg,#FF4D8F,#4D8FFF)',
   ];
-  if (!h.length) {
-    list.innerHTML = '<p style="color:var(--sub);font-size:13px;text-align:center;padding:24px 0">まだ投稿がありません</p>';
-    return;
-  }
-  list.innerHTML = h.map((item,i) => `
-    <div class="history-item">
-      <div class="history-thumb" style="background:${colors[i%colors.length]}"></div>
-      <div class="history-info">
-        <div class="history-title">${item.title}</div>
-        <div class="history-date">${item.date}</div>
+  el.innerHTML = h.length ? h.map((x,i) => `
+    <div class="hi">
+      <div class="hthumb" style="background:${grads[i%grads.length]}"></div>
+      <div style="flex:1;min-width:0">
+        <div class="htitle">${x.title}</div>
+        <div class="hdate">${x.date}</div>
       </div>
-      <div class="badge">公開済</div>
+      <div class="hbadge">公開済</div>
     </div>
-  `).join('');
+  `).join('') : '<div style="text-align:center;padding:32px 0;color:var(--sub);font-size:12px">まだ投稿がありません</div>';
+}
+
+function updateMetrics() {
+  const h = loadHistory();
+  const ym = new Date().toISOString().slice(0,7);
+  const month = h.filter(x => x.date && x.date.startsWith(ym));
+  document.getElementById('mCount').textContent = month.length;
+  document.getElementById('costCount').textContent = month.length + ' 本';
+  const cost = (month.length * COST_PER_VIDEO);
+  document.getElementById('mCost').textContent = '¥' + Math.round(cost * 150);
+  document.getElementById('costTotal').textContent = '$' + cost.toFixed(2);
+  if (h.length) {
+    document.getElementById('mLast').textContent = h[0].date.slice(5,10);
+    document.getElementById('mLastSub').textContent = h[0].date.slice(11,16);
+  }
+}
+
+// ── YouTube 認証ガイド ───────────────────────────────
+function doAuth() {
+  alert(
+    'YouTube Refresh Token の取得方法\n\n' +
+    '1. Macで以下を実行:\n' +
+    '   python3 auth_youtube.py\n\n' +
+    '2. ブラウザでGoogleログイン\n\n' +
+    '3. 生成された credentials.json を開いて\n' +
+    '   refresh_token の値をここに貼り付けてください\n\n' +
+    '※ Client ID / Secret は Google Cloud Console\n' +
+    '   → OAuth 2.0 クライアントID から取得できます'
+  );
 }
 </script>
 </body>
