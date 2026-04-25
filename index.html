@@ -849,17 +849,27 @@ async function findWorkflowRun(pat, runId, since) {
 }
 
 async function pollWorkflowRun(pat, ghRunId) {
-  for (let i = 0; i < 240; i++) { // up to 20 minutes
-    await sleep(5000);
-    const res = await ghApi(pat, `/repos/${GH_OWNER}/${GH_REPO}/actions/runs/${ghRunId}`);
-    const r = await res.json();
-    if (r.status === 'completed') {
-      if (r.conclusion === 'success') return true;
-      throw new Error(`Workflow failed: ${r.conclusion}`);
+  const deadline = Date.now() + 40 * 60 * 1000; // 40 minutes wall-clock
+  let lastLog = 0;
+  while (Date.now() < deadline) {
+    await sleep(10000);
+    try {
+      const res = await ghApi(pat, `/repos/${GH_OWNER}/${GH_REPO}/actions/runs/${ghRunId}`);
+      const r = await res.json();
+      if (r.status === 'completed') {
+        if (r.conclusion === 'success') return true;
+        throw new Error(`Workflow failed: ${r.conclusion}`);
+      }
+      if (Date.now() - lastLog > 30000) {
+        const remaining = Math.ceil((deadline - Date.now()) / 60000);
+        log(`  動画合成中... (${r.status}, 残り最大${remaining}分)`, 'info');
+        lastLog = Date.now();
+      }
+    } catch (e) {
+      if (e.message.startsWith('Workflow failed')) throw e;
     }
-    if (i % 6 === 0) log(`  動画合成中... (${r.status})`, 'info');
   }
-  throw new Error('Workflow polling timeout');
+  throw new Error('Workflow polling timeout (40分超過)');
 }
 
 async function getReleaseAssetUrl(pat, runId) {
