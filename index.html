@@ -766,17 +766,28 @@ async function stepUpload({ videoUrl }) {
 
 // ── Replicate API ヘルパー ───────────────────────────
 async function replicateRun(token, body) {
-  const res = await fetch('https://lofi-replicate-proxy.lofi-studio-imu.workers.dev/v1/predictions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Token ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
-  const pred = await res.json();
-  const id = pred.id;
-  if (!id) throw new Error('Replicate prediction failed: ' + JSON.stringify(pred));
+  let pred;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const res = await fetch('https://lofi-replicate-proxy.lofi-studio-imu.workers.dev/v1/predictions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Token ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    pred = await res.json();
+    if (pred.id) break;
+    if (pred.status === 429) {
+      const wait = (pred.retry_after || 15) * 1000;
+      log(`  レートリミット: ${pred.retry_after || 15}秒後にリトライ...`, 'warn');
+      await sleep(wait);
+      continue;
+    }
+    throw new Error('Replicate prediction failed: ' + JSON.stringify(pred));
+  }
+  const id = pred && pred.id;
+  if (!id) throw new Error('Replicate prediction failed after retries: ' + JSON.stringify(pred));
 
   for (let i=0; i<120; i++) {
     await sleep(5000);
