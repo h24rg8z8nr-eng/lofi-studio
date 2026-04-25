@@ -677,8 +677,8 @@ async function stepImage(cfg) {
   const prompt = IMG_PROMPTS[Math.floor(Math.random()*IMG_PROMPTS.length)];
   const replicateCfg = getCfg();
   const url = await replicateRun(replicateCfg.replicate, {
-    version: 'bf53bdb93d739c9c915091cfa68aaf29cf27a37e3a51c851d64a0d5765e14b60',
-    input: { prompt, width: 1920, height: 1080, num_outputs: 1 }
+    version: 'c846a69991daf4c0e5d016514849d14ee5b2e6846ce6b9d6f21369e564cfe51e',
+    input: { prompt, width: 1920, height: 1080, num_outputs: 1, aspect_ratio: '16:9' }
   });
   log('  ✓ 画像生成完了', 'ok');
   return { imageUrl: url };
