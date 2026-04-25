@@ -8,6 +8,8 @@
 <meta name="apple-mobile-web-app-title" content="Lo-fi Studio">
 <title>Lo-fi Studio</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Unbounded:wght@400;700;900&display=swap" rel="stylesheet">
+<!-- Title fonts (おしゃれフォント for lo-fi title) -->
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Pacifico&family=Yellowtail&family=Permanent+Marker&family=Special+Elite&family=Major+Mono+Display&family=Monoton&family=Audiowide&family=Bungee&family=Abril+Fatface&family=Lobster&family=Playfair+Display:wght@900&family=Bebas+Neue&family=Russo+One&family=Limelight&family=Cinzel:wght@900&family=Righteous&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#080B12;
@@ -334,6 +336,15 @@ body::before{
     </div>
 
     <div class="card">
+      <div class="ct">タイトルプレビュー</div>
+      <img id="titlePreviewImg" style="width:100%;border-radius:8px;background:var(--s2);aspect-ratio:16/9;object-fit:cover" alt="title preview">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+        <div id="titlePreviewFont" style="font-size:10px;color:var(--sub)">Font: —</div>
+        <button class="btn btn-sec" style="margin:0;padding:8px 14px;width:auto;font-size:9px" onclick="previewTitle()">ランダム再生成</button>
+      </div>
+    </div>
+
+    <div class="card">
       <div class="ct">実行ログ</div>
       <div class="logbox" id="logEl"></div>
     </div>
@@ -466,6 +477,7 @@ const STEPS = [
   {key:'music',  name:'音楽生成',        sub:'Replicate MusicGen API'},
   {key:'audio',  name:'オーディオ結合',  sub:'Cloudflare Workers'},
   {key:'image',  name:'画像生成',        sub:'Replicate FLUX API'},
+  {key:'title',  name:'タイトル生成',    sub:'Canvas + Random Font'},
   {key:'video',  name:'動画生成',        sub:'Cloudflare Workers ffmpeg'},
   {key:'upload', name:'YouTube投稿',     sub:'YouTube Data API v3'},
 ];
@@ -494,6 +506,41 @@ const IMG_PROMPTS = [
 ];
 const COST_PER_VIDEO = 0.36;
 
+// ── タイトル設定 ─────────────────────────────────────
+const TITLE_TEXT = 'lo-fi chillhop BGM channel';
+const TITLE_FONTS = [
+  { family:'Caveat',             weight:700, size:160, style:'handwritten' },
+  { family:'Pacifico',           weight:400, size:140, style:'retro-script' },
+  { family:'Yellowtail',         weight:400, size:150, style:'smooth-script' },
+  { family:'Permanent Marker',   weight:400, size:130, style:'street' },
+  { family:'Special Elite',      weight:400, size:120, style:'typewriter' },
+  { family:'Major Mono Display', weight:400, size:110, style:'mono-modern' },
+  { family:'Monoton',            weight:400, size:140, style:'80s-retro' },
+  { family:'Audiowide',          weight:400, size:130, style:'synthwave' },
+  { family:'Bungee',             weight:400, size:120, style:'urban' },
+  { family:'Abril Fatface',      weight:400, size:160, style:'editorial' },
+  { family:'Lobster',            weight:400, size:150, style:'retro-chill' },
+  { family:'Playfair Display',   weight:900, size:150, style:'elegant-serif' },
+  { family:'Bebas Neue',         weight:400, size:170, style:'clean-modern' },
+  { family:'Russo One',          weight:400, size:140, style:'bold-modern' },
+  { family:'Limelight',          weight:400, size:140, style:'art-deco' },
+  { family:'Cinzel',             weight:900, size:140, style:'classic' },
+  { family:'Righteous',          weight:400, size:150, style:'modern' },
+];
+const TITLE_PALETTES = [
+  { bg:['#1a0f2e','#3d1f5c'], text:'#FFD9A0', accent:'#FF6B9D' },
+  { bg:['#0f1e2e','#1f4d6b'], text:'#A0E8FF', accent:'#4DFFA0' },
+  { bg:['#2e1a0f','#5c3d1f'], text:'#FFE4B5', accent:'#FF9D6B' },
+  { bg:['#0f2e1a','#1f5c3d'], text:'#C8FFD9', accent:'#FFD96B' },
+  { bg:['#2e0f1f','#5c1f3d'], text:'#FFB5D9', accent:'#FF9D6B' },
+  { bg:['#1a1a2e','#2e2e5c'], text:'#E8E8FF', accent:'#FF4D8F' },
+  { bg:['#000000','#1a1a1a'], text:'#FFFFFF', accent:'#4DFFA0' },
+  { bg:['#2e1a00','#5c3300'], text:'#FFE0B5', accent:'#FFA64D' },
+];
+
+let lastTitleDataUrl = null;
+let lastTitleFont = null;
+
 // ── 状態 ────────────────────────────────────────────
 let running = false;
 let schedTimer = null;
@@ -505,6 +552,12 @@ window.onload = () => {
   applyCfg();
   renderHistory();
   updateMetrics();
+  // フォント読込後にタイトルプレビュー
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => previewTitle());
+  } else {
+    setTimeout(previewTitle, 800);
+  }
 };
 
 // ── タブ切替 ─────────────────────────────────────────
@@ -586,6 +639,7 @@ async function run() {
     ['music',  '音楽生成中...',        ()  => stepMusic(cfg)],
     ['audio',  'オーディオ結合中...',  (c) => stepAudio(c)],
     ['image',  '画像生成中...',        ()  => stepImage(cfg)],
+    ['title',  'タイトル生成中...',    ()  => stepTitle()],
     ['video',  '動画生成中...',        (c) => stepVideo(c)],
     ['upload', 'YouTube投稿中...',     (c) => stepUpload(c)],
   ];
@@ -595,7 +649,7 @@ async function run() {
   for (let i=0; i<pipeline.length; i++) {
     const [,msg, fn] = pipeline[i];
     setStep(i, 'active', msg.replace('中...',''));
-    setProgress(i*20, msg);
+    setProgress(i*(100/pipeline.length), msg);
     log(msg, 'info');
     try {
       const res = await fn(ctx);
@@ -684,15 +738,34 @@ async function stepImage(cfg) {
   return { imageUrl: url };
 }
 
-// ── STEP 4: 動画生成（Cloudflare Worker + ffmpeg） ───
-async function stepVideo({ longAudioUrl, imageUrl }) {
-  log('  Cloudflare Worker で動画生成中（Ken Burns）...');
+// ── STEP 4: タイトル生成（Canvas + ランダムフォント） ──
+async function stepTitle() {
+  log('  タイトルカード生成中...');
+  const { dataUrl, font } = await generateTitleCard();
+  log(`  ✓ タイトル生成完了 (font: ${font})`, 'ok');
+  // プレビュー更新
+  const img = document.getElementById('titlePreviewImg');
+  const lbl = document.getElementById('titlePreviewFont');
+  if (img) img.src = dataUrl;
+  if (lbl) lbl.textContent = `Font: ${font}`;
+  return { titleImageDataUrl: dataUrl, titleFont: font };
+}
+
+// ── STEP 5: 動画生成（Cloudflare Worker + ffmpeg） ───
+async function stepVideo({ longAudioUrl, imageUrl, titleImageDataUrl }) {
+  log('  Cloudflare Worker で動画生成中（タイトル + Ken Burns）...');
   const duration = parseInt(getCfg().duration);
 
   const res = await fetch('https://lofi-video-gen.lofi-studio-imu.workers.dev', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ audioUrl: longAudioUrl, imageUrl, duration }),
+    body: JSON.stringify({
+      audioUrl: longAudioUrl,
+      imageUrl,
+      titleImageDataUrl,
+      titleDuration: 5,
+      duration,
+    }),
   });
   if (!res.ok) throw new Error(`video gen failed: ${res.status}`);
   const { videoUrl } = await res.json();
@@ -803,6 +876,80 @@ async function replicateRun(token, body) {
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── タイトルカード生成（毎回ランダムフォント） ─────────
+async function generateTitleCard() {
+  const W = 1920, H = 1080;
+  const font    = TITLE_FONTS[Math.floor(Math.random()*TITLE_FONTS.length)];
+  const palette = TITLE_PALETTES[Math.floor(Math.random()*TITLE_PALETTES.length)];
+
+  // フォント読み込みを待機
+  try {
+    await document.fonts.load(`${font.weight} ${font.size}px "${font.family}"`);
+    await document.fonts.ready;
+  } catch (e) { /* ignore */ }
+
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+
+  // 背景グラデーション
+  const grad = ctx.createLinearGradient(0, 0, W, H);
+  grad.addColorStop(0, palette.bg[0]);
+  grad.addColorStop(1, palette.bg[1]);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // ノイズテクスチャ風（薄いランダムドット）
+  ctx.globalAlpha = 0.04;
+  for (let i = 0; i < 2500; i++) {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(Math.random()*W, Math.random()*H, 1, 1);
+  }
+  ctx.globalAlpha = 1;
+
+  // 装飾ライン（上下）
+  ctx.strokeStyle = palette.accent;
+  ctx.globalAlpha = 0.4;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(W*0.15, H*0.32); ctx.lineTo(W*0.85, H*0.32);
+  ctx.moveTo(W*0.15, H*0.68); ctx.lineTo(W*0.85, H*0.68);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // タイトル文字（影付き）
+  ctx.font = `${font.weight} ${font.size}px "${font.family}", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(0,0,0,0.6)';
+  ctx.shadowBlur = 24;
+  ctx.shadowOffsetY = 6;
+  ctx.fillStyle = palette.text;
+  ctx.fillText(TITLE_TEXT, W/2, H/2);
+
+  // サブテキスト
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.font = `400 28px "Space Mono", monospace`;
+  ctx.fillStyle = palette.accent;
+  ctx.globalAlpha = 0.7;
+  ctx.fillText('☕  RELAX  •  STUDY  •  CHILL  ☕', W/2, H*0.78);
+  ctx.globalAlpha = 1;
+
+  lastTitleFont = font;
+  lastTitleDataUrl = cv.toDataURL('image/png');
+  return { dataUrl: lastTitleDataUrl, font: font.family };
+}
+
+// プレビュー描画
+async function previewTitle() {
+  const { dataUrl, font } = await generateTitleCard();
+  const img = document.getElementById('titlePreviewImg');
+  const lbl = document.getElementById('titlePreviewFont');
+  if (img) img.src = dataUrl;
+  if (lbl) lbl.textContent = `Font: ${font}`;
+}
 
 // ── 設定 ────────────────────────────────────────────
 function getCfg() {
