@@ -385,9 +385,9 @@ body::before{
         <div class="field">
           <label class="fl">MusicGen</label>
           <select class="fi" id="cfgModel">
-            <option value="facebook/musicgen-small">small</option>
-            <option value="facebook/musicgen-medium" selected>medium</option>
-            <option value="facebook/musicgen-stereo-large">large</option>
+            <option value="large">small</option>
+            <option value="melody-large" selected>medium</option>
+            <option value="stereo-large">large</option>
           </select>
         </div>
         <div class="field">
@@ -633,7 +633,7 @@ async function stepMusic(cfg) {
   for (let i=0; i<prompts.length; i++) {
     log(`  曲 ${i+1}/${tracks} 生成中...`);
     const url = await replicateRun(cfg.replicate, {
-      version: 'b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38',
+      version: '671ac645ce5e552cc63a54a2bbff63fcf798043055d2dac5fc9e36a837eedcfb',
       input: {
         prompt: prompts[i],
         model_version: cfg.model || 'stereo-melody-large',
