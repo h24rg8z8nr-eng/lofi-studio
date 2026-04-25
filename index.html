@@ -413,6 +413,17 @@ body::before{
     </div>
 
     <div class="card">
+      <div class="ct">開発モード</div>
+      <div class="trow">
+        <div>
+          <div class="tlabel">テストモード</div>
+          <div class="tsub" id="testModeLabel">保存済み楽曲（9曲）を使用 — 音楽生成スキップ</div>
+        </div>
+        <button class="tog on" id="cfgTestMode" onclick="toggleTestMode()"></button>
+      </div>
+    </div>
+
+    <div class="card">
       <div class="ct">スケジュール</div>
       <div class="trow">
         <div>
@@ -540,6 +551,12 @@ const TITLE_PALETTES = [
 
 let lastTitleDataUrl = null;
 let lastTitleFont = null;
+
+// ── テストモード設定 ──────────────────────────────────
+// ON: 保存済みのSuno生成曲を使用（音楽生成スキップ）
+// OFF: Replicate MusicGenで毎回生成
+const LOCAL_TRACKS_BASE = 'https://h24rg8z8nr-eng.github.io/lofi-studio/tracks';
+const LOCAL_TRACK_COUNT = 9;
 
 // ── 状態 ────────────────────────────────────────────
 let running = false;
@@ -681,6 +698,20 @@ async function run() {
 // ── STEP 1: 音楽生成（Replicate MusicGen） ──────────
 async function stepMusic(cfg) {
   const tracks = parseInt(cfg.tracks);
+
+  // ── テストモード: 保存済みSuno曲を使用 ──
+  if (cfg.testMode) {
+    log(`  テストモード: 保存済み楽曲を使用 (${LOCAL_TRACK_COUNT}曲)`, 'info');
+    const audioUrls = [];
+    const n = Math.min(tracks, LOCAL_TRACK_COUNT);
+    for (let i=1; i<=n; i++) {
+      const url = `${LOCAL_TRACKS_BASE}/track_${String(i).padStart(2,'0')}.mp3`;
+      audioUrls.push(url);
+      log(`  ✓ track_${String(i).padStart(2,'0')}.mp3 (local)`, 'ok');
+    }
+    return { audioUrls };
+  }
+
   const audioUrls = [];
   const prompts = LOFI_PROMPTS.slice(0, tracks);
   const MODEL_MAP = {
@@ -963,6 +994,7 @@ function getCfg() {
     model:      document.getElementById('cfgModel').value,
     privacy:    document.getElementById('cfgPrivacy').value,
     schedTime:  document.getElementById('cfgSchedTime').value,
+    testMode:   document.getElementById('cfgTestMode').classList.contains('on'),
   };
 }
 
@@ -983,7 +1015,15 @@ function applyCfg() {
   if (c.model)      document.getElementById('cfgModel').value      = c.model;
   if (c.privacy)    document.getElementById('cfgPrivacy').value    = c.privacy;
   if (c.schedTime)  document.getElementById('cfgSchedTime').value  = c.schedTime;
+  if (c.testMode)   document.getElementById('cfgTestMode').classList.add('on');
   if (c.replicate && !c.replicate.startsWith('r8_xxxx')) setStatus('ok','設定済み');
+}
+
+function toggleTestMode() {
+  const t = document.getElementById('cfgTestMode');
+  t.classList.toggle('on');
+  document.getElementById('testModeLabel').textContent =
+    t.classList.contains('on') ? `保存済み楽曲（${LOCAL_TRACK_COUNT}曲）を使用 — 音楽生成スキップ` : 'Replicate MusicGenで毎回生成';
 }
 
 // ── スケジュール ─────────────────────────────────────
