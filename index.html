@@ -583,11 +583,11 @@ async function run() {
   setProgress(0,'');
 
   const pipeline = [
-    ['music',  '音楽生成中...',        () => stepMusic(cfg)],
-    ['audio',  'オーディオ結合中...',  () => stepAudio(cfg)],
-    ['image',  '画像生成中...',        () => stepImage(cfg)],
-    ['video',  '動画生成中...',        () => stepVideo(cfg)],
-    ['upload', 'YouTube投稿中...',     () => stepUpload(cfg)],
+    ['music',  '音楽生成中...',        ()  => stepMusic(cfg)],
+    ['audio',  'オーディオ結合中...',  (c) => stepAudio(c)],
+    ['image',  '画像生成中...',        ()  => stepImage(cfg)],
+    ['video',  '動画生成中...',        (c) => stepVideo(c)],
+    ['upload', 'YouTube投稿中...',     (c) => stepUpload(c)],
   ];
 
   let ok = true;
