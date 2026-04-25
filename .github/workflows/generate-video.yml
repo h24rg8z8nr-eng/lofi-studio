@@ -89,7 +89,7 @@ jobs:
                [v0][v1]concat=n=2:v=1:a=0[vout];\
                [2:a]aloop=loop=-1:size=2e9,atrim=duration=$TOTAL_DUR,afade=t=out:st=$FADE_START:d=15[aout]" \
             -map "[vout]" -map "[aout]" \
-            -c:v libx264 -preset ultrafast -pix_fmt yuv420p -crf 28 \
+            -c:v libx264 -preset ultrafast -tune stillimage -pix_fmt yuv420p -crf 35 -maxrate 1500k -bufsize 3M \
             -c:a aac -b:a 128k \
             -movflags +faststart \
             -t $TOTAL_DUR \
