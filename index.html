@@ -629,6 +629,14 @@ async function stepMusic(cfg) {
   const tracks = parseInt(cfg.tracks);
   const audioUrls = [];
   const prompts = LOFI_PROMPTS.slice(0, tracks);
+  const MODEL_MAP = {
+    'facebook/musicgen-small': 'large',
+    'facebook/musicgen-medium': 'melody-large',
+    'facebook/musicgen-stereo-large': 'stereo-large',
+  };
+  const validModels = ['stereo-melody-large','stereo-large','melody-large','large'];
+  const rawModel = cfg.model || 'melody-large';
+  const modelVersion = MODEL_MAP[rawModel] || (validModels.includes(rawModel) ? rawModel : 'melody-large');
 
   for (let i=0; i<prompts.length; i++) {
     log(`  曲 ${i+1}/${tracks} 生成中...`);
@@ -636,7 +644,7 @@ async function stepMusic(cfg) {
       version: '671ac645ce5e552cc63a54a2bbff63fcf798043055d2dac5fc9e36a837eedcfb',
       input: {
         prompt: prompts[i],
-        model_version: cfg.model || 'stereo-melody-large',
+        model_version: modelVersion,
         duration: 30,
         output_format: 'mp3',
       }
