@@ -1,0 +1,95 @@
+name: Generate Lo-fi Video
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Unique run ID'
+        required: true
+      audio_url:
+        description: 'Audio file URL'
+        required: true
+      image_url:
+        description: 'Main image URL'
+        required: true
+      title_path:
+        description: 'Title PNG path in repo (e.g. tmp/title-XXX.png)'
+        required: true
+      title_duration:
+        description: 'Title display seconds'
+        required: false
+        default: '5'
+      duration:
+        description: 'Total video duration in seconds'
+        required: false
+        default: '7200'
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Download audio
+        run: curl -L --fail -o audio.mp3 "${{ inputs.audio_url }}"
+
+      - name: Download main image
+        run: curl -L --fail -o main_raw "${{ inputs.image_url }}"
+
+      - name: Convert main image to PNG
+        run: ffmpeg -i main_raw -frames:v 1 main.png
+
+      - name: Verify title image exists
+        run: |
+          if [ ! -f "${{ inputs.title_path }}" ]; then
+            echo "Title image not found: ${{ inputs.title_path }}"
+            exit 1
+          fi
+          cp "${{ inputs.title_path }}" title.png
+
+      - name: Compose video (title intro + main loop with audio)
+        run: |
+          TITLE_DUR=${{ inputs.title_duration }}
+          TOTAL_DUR=${{ inputs.duration }}
+          MAIN_DUR=$((TOTAL_DUR - TITLE_DUR))
+          ffmpeg -y \
+            -loop 1 -t $TITLE_DUR -i title.png \
+            -loop 1 -t $MAIN_DUR  -i main.png \
+            -i audio.mp3 \
+            -filter_complex "[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24[v0];[1:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24[v1];[v0][v1]concat=n=2:v=1:a=0[vout];[2:a]aloop=loop=-1:size=2e9,atrim=duration=$TOTAL_DUR[aout]" \
+            -map "[vout]" -map "[aout]" \
+            -c:v libx264 -preset ultrafast -tune stillimage -pix_fmt yuv420p -crf 28 \
+            -c:a aac -b:a 128k \
+            -movflags +faststart \
+            -t $TOTAL_DUR \
+            output.mp4
+
+      - name: Show output info
+        run: |
+          ls -lh output.mp4
+          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1 output.mp4
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: video-${{ inputs.run_id }}
+          name: video-${{ inputs.run_id }}
+          files: output.mp4
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cleanup tmp title image
+        if: always()
+        continue-on-error: true
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull origin main --rebase
+          git rm -f "${{ inputs.title_path }}" || true
+          git commit -m "cleanup tmp title for ${{ inputs.run_id }}" || true
+          git push origin main || true
