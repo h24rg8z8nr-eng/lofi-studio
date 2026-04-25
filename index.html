@@ -370,6 +370,10 @@ body::before{
         <label class="fl">YouTube Refresh Token</label>
         <input class="fi" type="text" id="cfgYtRefresh" placeholder="1//xxxxx" style="font-size:10px">
       </div>
+      <div class="field">
+        <label class="fl">GitHub Personal Access Token</label>
+        <input class="fi" type="password" id="cfgGhPat" placeholder="github_pat_xxxxx" style="font-size:10px">
+      </div>
     </div>
 
     <div class="card">
@@ -782,25 +786,124 @@ async function stepTitle() {
   return { titleImageDataUrl: dataUrl, titleFont: font };
 }
 
-// ── STEP 5: 動画生成（Cloudflare Worker + ffmpeg） ───
-async function stepVideo({ longAudioUrl, imageUrl, titleImageDataUrl }) {
-  log('  Cloudflare Worker で動画生成中（タイトル + Ken Burns）...');
-  const duration = parseInt(getCfg().duration);
+// ── STEP 5: 動画生成（GitHub Actions + ffmpeg） ───────
+const GH_OWNER = 'h24rg8z8nr-eng';
+const GH_REPO  = 'lofi-studio';
 
-  const res = await fetch('https://lofi-video-gen.lofi-studio-imu.workers.dev', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+async function ghApi(pat, path, opts = {}) {
+  const res = await fetch(`https://api.github.com${path}`, {
+    ...opts,
+    headers: {
+      Authorization: `Bearer ${pat}`,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      ...(opts.headers || {}),
+    },
+  });
+  return res;
+}
+
+async function uploadTitleToRepo(pat, runId, titleDataUrl) {
+  const path = `tmp/title-${runId}.png`;
+  const base64 = titleDataUrl.split(',')[1];
+  const res = await ghApi(pat, `/repos/${GH_OWNER}/${GH_REPO}/contents/${path}`, {
+    method: 'PUT',
     body: JSON.stringify({
-      audioUrl: longAudioUrl,
-      imageUrl,
-      titleImageDataUrl,
-      titleDuration: 5,
-      duration,
+      message: `tmp title for video ${runId}`,
+      content: base64,
+      branch: 'main',
     }),
   });
-  if (!res.ok) throw new Error(`video gen failed: ${res.status}`);
-  const { videoUrl } = await res.json();
-  log('  ✓ 動画生成完了', 'ok');
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Title upload failed: ${res.status} ${err}`);
+  }
+  return path;
+}
+
+async function triggerWorkflow(pat, inputs) {
+  const before = new Date(Date.now() - 5000).toISOString();
+  const res = await ghApi(pat, `/repos/${GH_OWNER}/${GH_REPO}/actions/workflows/generate-video.yml/dispatches`, {
+    method: 'POST',
+    body: JSON.stringify({ ref: 'main', inputs }),
+  });
+  if (!res.ok && res.status !== 204) {
+    const err = await res.text();
+    throw new Error(`Workflow dispatch failed: ${res.status} ${err}`);
+  }
+  return before;
+}
+
+async function findWorkflowRun(pat, runId, since) {
+  for (let i = 0; i < 30; i++) {
+    await sleep(3000);
+    const res = await ghApi(pat, `/repos/${GH_OWNER}/${GH_REPO}/actions/workflows/generate-video.yml/runs?event=workflow_dispatch&per_page=10`);
+    const data = await res.json();
+    for (const r of (data.workflow_runs || [])) {
+      if (r.created_at >= since && r.name && r.name.includes('Generate')) {
+        return r.id;
+      }
+    }
+  }
+  throw new Error('Workflow run not found');
+}
+
+async function pollWorkflowRun(pat, ghRunId) {
+  for (let i = 0; i < 240; i++) { // up to 20 minutes
+    await sleep(5000);
+    const res = await ghApi(pat, `/repos/${GH_OWNER}/${GH_REPO}/actions/runs/${ghRunId}`);
+    const r = await res.json();
+    if (r.status === 'completed') {
+      if (r.conclusion === 'success') return true;
+      throw new Error(`Workflow failed: ${r.conclusion}`);
+    }
+    if (i % 6 === 0) log(`  動画合成中... (${r.status})`, 'info');
+  }
+  throw new Error('Workflow polling timeout');
+}
+
+async function getReleaseAssetUrl(pat, runId) {
+  for (let i = 0; i < 10; i++) {
+    await sleep(2000);
+    const res = await ghApi(pat, `/repos/${GH_OWNER}/${GH_REPO}/releases/tags/video-${runId}`);
+    if (res.ok) {
+      const r = await res.json();
+      const asset = (r.assets || []).find(a => a.name === 'output.mp4');
+      if (asset) return asset.browser_download_url;
+    }
+  }
+  throw new Error('Release asset not found');
+}
+
+async function stepVideo({ longAudioUrl, imageUrl, titleImageDataUrl }) {
+  const cfg = getCfg();
+  if (!cfg.ghPat) throw new Error('GitHub PATが設定されていません（設定タブで入力）');
+
+  const duration = parseInt(cfg.duration);
+  const runId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+  log(`  GitHub にタイトル画像アップロード中... (run: ${runId})`);
+  const titlePath = await uploadTitleToRepo(cfg.ghPat, runId, titleImageDataUrl);
+
+  log('  GitHub Actions ワークフロー起動中...');
+  const since = await triggerWorkflow(cfg.ghPat, {
+    run_id: runId,
+    audio_url: longAudioUrl,
+    image_url: imageUrl,
+    title_path: titlePath,
+    title_duration: '5',
+    duration: String(duration),
+  });
+
+  log('  ワークフローID取得中...');
+  const ghRunId = await findWorkflowRun(cfg.ghPat, runId, since);
+  log(`  ✓ ワークフロー実行中 (id: ${ghRunId})`, 'ok');
+
+  await pollWorkflowRun(cfg.ghPat, ghRunId);
+  log('  ✓ 動画合成完了', 'ok');
+
+  const videoUrl = await getReleaseAssetUrl(cfg.ghPat, runId);
+  log(`  ✓ 動画URL取得: ${videoUrl}`, 'ok');
   return { videoUrl };
 }
 
@@ -989,6 +1092,7 @@ function getCfg() {
     ytClientId: document.getElementById('cfgYtClientId').value.trim(),
     ytSecret:   document.getElementById('cfgYtSecret').value.trim(),
     ytRefresh:  document.getElementById('cfgYtRefresh').value.trim(),
+    ghPat:      document.getElementById('cfgGhPat').value.trim(),
     tracks:     document.getElementById('cfgTracks').value,
     duration:   document.getElementById('cfgDuration').value,
     model:      document.getElementById('cfgModel').value,
@@ -1010,6 +1114,7 @@ function applyCfg() {
   if (c.ytClientId) document.getElementById('cfgYtClientId').value = c.ytClientId;
   if (c.ytSecret)   document.getElementById('cfgYtSecret').value   = c.ytSecret;
   if (c.ytRefresh)  document.getElementById('cfgYtRefresh').value  = c.ytRefresh;
+  if (c.ghPat)      document.getElementById('cfgGhPat').value      = c.ghPat;
   if (c.tracks)     document.getElementById('cfgTracks').value     = c.tracks;
   if (c.duration)   document.getElementById('cfgDuration').value   = c.duration;
   if (c.model)      document.getElementById('cfgModel').value      = c.model;
