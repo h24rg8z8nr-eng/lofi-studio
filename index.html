@@ -903,6 +903,7 @@ async function stepVideo({ longAudioUrl, imageUrl, titleImageDataUrl }) {
     title_path: titlePath,
     title_duration: '5',
     duration: String(duration),
+    privacy: cfg.privacy || 'private',
   });
 
   log('  ワークフローID取得中...');
@@ -914,11 +915,32 @@ async function stepVideo({ longAudioUrl, imageUrl, titleImageDataUrl }) {
 
   const videoUrl = await getReleaseAssetUrl(cfg.ghPat, runId);
   log(`  ✓ 動画URL取得: ${videoUrl}`, 'ok');
-  return { videoUrl };
+  return { videoUrl, runId };
 }
 
 // ── STEP 5: YouTube 投稿 ─────────────────────────────
-async function stepUpload({ videoUrl }) {
+async function stepUpload({ videoUrl, runId }) {
+  const cfg = getCfg();
+  log('  YouTube投稿結果を確認中...');
+  // YouTube upload was done in GitHub Actions — read URL from release body
+  for (let i = 0; i < 12; i++) {
+    await sleep(5000);
+    const res = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/releases/tags/video-${runId}`);
+    if (res.ok) {
+      const release = await res.json();
+      const ytUrl = (release.body || '').match(/https:\/\/youtu\.be\/\S+/)?.[0];
+      if (ytUrl) {
+        const videoId = ytUrl.split('/').pop();
+        log(`  ✓ YouTube投稿完了: ${ytUrl}`, 'ok');
+        return { videoId };
+      }
+    }
+  }
+  log('  動画はGitHub Releasesに保存されました: ' + videoUrl, 'ok');
+  return { videoId: null };
+}
+
+async function _unused_stepUpload({ videoUrl }) {
   log('  YouTube アクセストークン取得中...');
   const cfg = getCfg();
 
