@@ -23,6 +23,10 @@ on:
         description: 'Total video duration in seconds'
         required: false
         default: '7200'
+      privacy:
+        description: 'YouTube privacy (public/unlisted/private)'
+        required: false
+        default: 'private'
 
 jobs:
   generate:
@@ -107,6 +111,75 @@ jobs:
           name: video-${{ inputs.run_id }}
           files: output.mp4
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload to YouTube
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        run: |
+          if [ -z "$YT_CLIENT_ID" ] || [ -z "$YT_REFRESH_TOKEN" ]; then
+            echo "YouTube credentials not set - skipping"
+            exit 0
+          fi
+
+          TOKEN_JSON=$(curl -s -X POST https://oauth2.googleapis.com/token \
+            -d "client_id=${YT_CLIENT_ID}" \
+            -d "client_secret=${YT_CLIENT_SECRET}" \
+            -d "refresh_token=${YT_REFRESH_TOKEN}" \
+            -d "grant_type=refresh_token")
+          ACCESS_TOKEN=$(echo "$TOKEN_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('access_token',''))")
+
+          if [ -z "$ACCESS_TOKEN" ]; then
+            echo "YouTube auth failed - skipping"
+            exit 0
+          fi
+
+          FILE_SIZE=$(stat -c%s output.mp4)
+          TITLE="lo-fi chillhop BGM channel - $(date '+%Y.%m.%d')"
+          PRIVACY="${{ inputs.privacy }}"
+          META="{\"snippet\":{\"title\":\"$TITLE\",\"description\":\"Relaxing lo-fi hip hop music for studying, working, and relaxing.\\n\\n#lofi #chillhop #bgm #studymusic\",\"categoryId\":\"10\",\"tags\":[\"lofi\",\"chillhop\",\"bgm\",\"study music\",\"relaxing\",\"lofi hip hop\"]},\"status\":{\"privacyStatus\":\"$PRIVACY\"}}"
+
+          INIT_RESPONSE=$(curl -sD - -X POST \
+            "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status" \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -H "X-Upload-Content-Type: video/mp4" \
+            -H "X-Upload-Content-Length: $FILE_SIZE" \
+            -d "$META")
+
+          UPLOAD_URL=$(echo "$INIT_RESPONSE" | grep -i "^location:" | tr -d '\r' | awk '{print $2}')
+
+          if [ -z "$UPLOAD_URL" ]; then
+            echo "Upload URL取得失敗 - skipping"
+            echo "$INIT_RESPONSE"
+            exit 0
+          fi
+
+          UPLOAD_RESP=$(curl -s -X PUT "$UPLOAD_URL" \
+            -H "Content-Type: video/mp4" \
+            -H "Content-Length: $FILE_SIZE" \
+            --data-binary @output.mp4)
+
+          VIDEO_ID=$(echo "$UPLOAD_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('id',''))" 2>/dev/null || echo "")
+
+          if [ -n "$VIDEO_ID" ]; then
+            echo "YouTube URL: https://youtu.be/$VIDEO_ID"
+            echo "YT_VIDEO_ID=$VIDEO_ID" >> $GITHUB_ENV
+          fi
+
+      - name: Save YouTube URL to release
+        if: ${{ env.YT_VIDEO_ID != '' }}
+        run: |
+          RELEASE_ID=$(curl -s \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/video-${{ inputs.run_id }}" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+          curl -s -X PATCH \
+            "https://api.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"body\":\"https://youtu.be/${{ env.YT_VIDEO_ID }}\"}"
+          echo "Release updated with YouTube URL"
 
       - name: Cleanup tmp title image
         if: always()
