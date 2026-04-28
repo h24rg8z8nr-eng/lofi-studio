@@ -88,7 +88,7 @@ jobs:
             -i main_video.mp4 \
             -i audio.mp3 \
             -filter_complex \
-              "[0:v]scale=1280x720:force_original_aspect_ratio=decrease,pad=1280x720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24[v0];\
+              "[0:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24[v0];\
                [1:v]setsar=1[v1];\
                [v0][v1]concat=n=2:v=1:a=0[vout];\
                [2:a]aloop=loop=-1:size=2e9,atrim=duration=$TOTAL_DUR,afade=t=out:st=$FADE_START:d=15[aout]" \
