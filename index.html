@@ -478,7 +478,7 @@ body::before{
 // ── 定数 ─────────────────────────────────────────────
 const STEPS = [
   {key:'music',  name:'楽曲読み込み',    sub:'Suno AI / tracks/ フォルダ'},
-  {key:'audio',  name:'オーディオ結合',  sub:'Cloudflare Workers'},
+  {key:'audio',  name:'楽曲選択',        sub:'ランダム1曲選択 → workflow内でループ'},
   {key:'image',  name:'画像生成',        sub:'Replicate FLUX API'},
   {key:'title',  name:'タイトル生成',    sub:'Canvas + Random Font'},
   {key:'video',  name:'動画生成',        sub:'Cloudflare Workers ffmpeg'},
@@ -783,20 +783,13 @@ async function loadTrackList() {
   }
 }
 
-// ── STEP 2: オーディオ結合（Cloudflare Worker） ──────
-async function stepAudio({ audioUrls, ...cfg }) {
-  log('  Cloudflare Worker でオーディオ結合中...');
-  const duration = parseInt(getCfg().duration);
-
-  const res = await fetch('https://lofi-audio-merge.lofi-studio-imu.workers.dev', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ audioUrls, targetDuration: duration }),
-  });
-  if (!res.ok) throw new Error(`audio merge failed: ${res.status}`);
-  const { audioUrl } = await res.json();
-  log('  ✓ 2時間オーディオ結合完了', 'ok');
-  return { longAudioUrl: audioUrl };
+// ── STEP 2: 楽曲選択（ランダム1曲 → workflowでループ） ──
+async function stepAudio({ audioUrls }) {
+  // ワークフローのffmpegがaloop=-1で無限ループするので、1曲渡すだけでOK
+  const pick = audioUrls[Math.floor(Math.random() * audioUrls.length)];
+  const name = decodeURIComponent(pick.split('/').pop());
+  log(`  ✓ 選曲: ${name}`, 'ok');
+  return { longAudioUrl: pick };
 }
 
 // ── STEP 3: 画像生成（Replicate FLUX） ───────────────
