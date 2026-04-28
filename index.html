@@ -380,29 +380,11 @@ body::before{
       <div class="ct">生成パラメータ</div>
       <div class="fi-row">
         <div class="field">
-          <label class="fl">曲数</label>
-          <select class="fi" id="cfgTracks">
-            <option value="7">7曲</option>
-            <option value="9" selected>9曲</option>
-            <option value="12">12曲</option>
-          </select>
-        </div>
-        <div class="field">
           <label class="fl">動画の長さ</label>
           <select class="fi" id="cfgDuration">
             <option value="3600">1時間</option>
             <option value="7200" selected>2時間</option>
             <option value="10800">3時間</option>
-          </select>
-        </div>
-      </div>
-      <div class="fi-row">
-        <div class="field">
-          <label class="fl">MusicGen</label>
-          <select class="fi" id="cfgModel">
-            <option value="large">small</option>
-            <option value="melody-large" selected>medium</option>
-            <option value="stereo-large">large</option>
           </select>
         </div>
         <div class="field">
@@ -417,13 +399,19 @@ body::before{
     </div>
 
     <div class="card">
-      <div class="ct">開発モード</div>
-      <div class="trow">
-        <div>
-          <div class="tlabel">テストモード</div>
-          <div class="tsub" id="testModeLabel">保存済み楽曲（9曲）を使用 — 音楽生成スキップ</div>
-        </div>
-        <button class="tog on" id="cfgTestMode" onclick="toggleTestMode()"></button>
+      <div class="ct">楽曲管理（Suno AI）</div>
+      <div class="tsub" style="margin-bottom:12px">デスクトップのSuno AIダウンロード曲（MP3）をアップロードしてください。アップロードした曲がパイプラインで使用されます。</div>
+      <div class="field">
+        <label class="fl">MP3ファイルを選択</label>
+        <input type="file" id="trackFiles" accept="audio/mpeg,.mp3" multiple style="display:none" onchange="onTrackFilesSelected()">
+        <button class="btn btn-sec" style="margin:0;width:100%" onclick="document.getElementById('trackFiles').click()">ファイルを選択</button>
+      </div>
+      <div id="trackUploadList" style="margin-top:8px;font-size:11px;color:var(--sub)"></div>
+      <button class="btn btn-run" style="margin-top:10px" id="uploadTracksBtn" onclick="uploadSelectedTracks()" disabled>GitHubにアップロード</button>
+      <div style="margin-top:14px;border-top:1px solid var(--bd);padding-top:12px">
+        <div style="font-size:11px;color:var(--sub);margin-bottom:6px">現在の楽曲 <span id="trackCountBadge">—</span></div>
+        <div id="trackList" style="font-size:11px;color:var(--tx)">読み込み中...</div>
+        <button class="btn btn-sec" style="margin-top:8px;padding:6px 12px;width:auto;font-size:10px" onclick="loadTrackList()">楽曲リストを更新</button>
       </div>
     </div>
 
@@ -462,20 +450,20 @@ body::before{
   <div class="page" id="p3">
     <div class="card">
       <div class="ct">1本あたりの費用（目安）</div>
-      <div class="cost-row"><span class="cost-label">MusicGen × 9曲</span><span class="cost-val">約 $0.36</span></div>
+      <div class="cost-row"><span class="cost-label">Suno AI 楽曲</span><span class="cost-val">Sunoプランに含む</span></div>
       <div class="cost-row"><span class="cost-label">FLUX 画像生成</span><span class="cost-val">約 $0.003</span></div>
-      <div class="cost-row"><span class="cost-label">ffmpeg（Cloudflare）</span><span class="cost-val">無料</span></div>
+      <div class="cost-row"><span class="cost-label">ffmpeg（GitHub Actions）</span><span class="cost-val">無料</span></div>
       <div class="cost-row"><span class="cost-label">YouTube API</span><span class="cost-val">無料</span></div>
       <div class="cost-row" style="border-top:1px solid var(--bd);margin-top:4px;padding-top:12px">
         <span class="cost-label" style="font-weight:700">合計 / 1本</span>
-        <span class="cost-val cost-total">約 $0.36（約55円）</span>
+        <span class="cost-val cost-total">約 $0.003（約0.5円）</span>
       </div>
     </div>
     <div class="card">
       <div class="ct">月間コスト試算</div>
-      <div class="cost-row"><span class="cost-label">月10本投稿</span><span class="cost-val">約 $3.6（約540円）</span></div>
-      <div class="cost-row"><span class="cost-label">月30本投稿</span><span class="cost-val">約 $10.8（約1,620円）</span></div>
-      <div class="cost-row"><span class="cost-label">月60本投稿（毎日2本）</span><span class="cost-val">約 $21.6（約3,240円）</span></div>
+      <div class="cost-row"><span class="cost-label">月10本投稿</span><span class="cost-val">約 $0.03（約5円）</span></div>
+      <div class="cost-row"><span class="cost-label">月30本投稿</span><span class="cost-val">約 $0.09（約15円）</span></div>
+      <div class="cost-row"><span class="cost-label">月60本投稿（毎日2本）</span><span class="cost-val">約 $0.18（約30円）</span></div>
     </div>
     <div class="card">
       <div class="ct">今月の実績</div>
@@ -489,7 +477,7 @@ body::before{
 <script>
 // ── 定数 ─────────────────────────────────────────────
 const STEPS = [
-  {key:'music',  name:'音楽生成',        sub:'Replicate MusicGen API'},
+  {key:'music',  name:'楽曲読み込み',    sub:'Suno AI / tracks/ フォルダ'},
   {key:'audio',  name:'オーディオ結合',  sub:'Cloudflare Workers'},
   {key:'image',  name:'画像生成',        sub:'Replicate FLUX API'},
   {key:'title',  name:'タイトル生成',    sub:'Canvas + Random Font'},
@@ -556,11 +544,7 @@ const TITLE_PALETTES = [
 let lastTitleDataUrl = null;
 let lastTitleFont = null;
 
-// ── テストモード設定 ──────────────────────────────────
-// ON: 保存済みのSuno生成曲を使用（音楽生成スキップ）
-// OFF: Replicate MusicGenで毎回生成
 const LOCAL_TRACKS_BASE = 'https://h24rg8z8nr-eng.github.io/lofi-studio/tracks';
-const LOCAL_TRACK_COUNT = 9;
 
 // ── 状態 ────────────────────────────────────────────
 let running = false;
@@ -585,6 +569,7 @@ window.onload = () => {
 function sw(i) {
   document.querySelectorAll('.page').forEach((p,j) => p.classList.toggle('on', i===j));
   document.querySelectorAll('.tab').forEach((t,j) => t.classList.toggle('on', i===j));
+  if (i === 1) loadTrackList();
 }
 
 // ── ステップ描画 ─────────────────────────────────────
@@ -699,49 +684,103 @@ async function run() {
   }
 }
 
-// ── STEP 1: 音楽生成（Replicate MusicGen） ──────────
+// ── STEP 1: 楽曲読み込み（tracks/ フォルダ） ────────
 async function stepMusic(cfg) {
-  const tracks = parseInt(cfg.tracks);
-
-  // ── テストモード: 保存済みSuno曲を使用 ──
-  if (cfg.testMode) {
-    log(`  テストモード: 保存済み楽曲を使用 (${LOCAL_TRACK_COUNT}曲)`, 'info');
-    const audioUrls = [];
-    const n = Math.min(tracks, LOCAL_TRACK_COUNT);
-    for (let i=1; i<=n; i++) {
-      const url = `${LOCAL_TRACKS_BASE}/track_${String(i).padStart(2,'0')}.mp3`;
-      audioUrls.push(url);
-      log(`  ✓ track_${String(i).padStart(2,'0')}.mp3 (local)`, 'ok');
-    }
-    return { audioUrls };
+  log('  GitHubのtracks/フォルダから楽曲を読み込み中...');
+  const res = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/tracks`);
+  if (!res.ok) {
+    if (res.status === 404) throw new Error('tracks/フォルダが見つかりません。設定タブから楽曲をアップロードしてください。');
+    throw new Error(`楽曲一覧の取得に失敗しました: ${res.status}`);
   }
-
-  const audioUrls = [];
-  const prompts = LOFI_PROMPTS.slice(0, tracks);
-  const MODEL_MAP = {
-    'facebook/musicgen-small': 'large',
-    'facebook/musicgen-medium': 'melody-large',
-    'facebook/musicgen-stereo-large': 'stereo-large',
-  };
-  const validModels = ['stereo-melody-large','stereo-large','melody-large','large'];
-  const rawModel = cfg.model || 'melody-large';
-  const modelVersion = MODEL_MAP[rawModel] || (validModels.includes(rawModel) ? rawModel : 'melody-large');
-
-  for (let i=0; i<prompts.length; i++) {
-    log(`  曲 ${i+1}/${tracks} 生成中...`);
-    const url = await replicateRun(cfg.replicate, {
-      version: '671ac645ce5e552cc63a54a2bbff63fcf798043055d2dac5fc9e36a837eedcfb',
-      input: {
-        prompt: prompts[i],
-        model_version: modelVersion,
-        duration: 30,
-        output_format: 'mp3',
-      }
-    });
-    audioUrls.push(url);
-    log(`  ✓ track_${String(i+1).padStart(2,'0')}.mp3`, 'ok');
-  }
+  const files = await res.json();
+  const mp3Files = files.filter(f => f.name.toLowerCase().endsWith('.mp3')).sort((a,b) => a.name.localeCompare(b.name));
+  if (mp3Files.length === 0) throw new Error('tracks/フォルダにMP3ファイルがありません。設定タブからSuno曲をアップロードしてください。');
+  const audioUrls = mp3Files.map(f => `${LOCAL_TRACKS_BASE}/${encodeURIComponent(f.name)}`);
+  mp3Files.forEach(f => log(`  ✓ ${f.name}`, 'ok'));
+  log(`  計 ${mp3Files.length} 曲を読み込みました`, 'ok');
   return { audioUrls };
+}
+
+// ── 楽曲アップロード ─────────────────────────────────
+let selectedTrackFiles = [];
+
+function onTrackFilesSelected() {
+  const input = document.getElementById('trackFiles');
+  selectedTrackFiles = Array.from(input.files);
+  const listEl = document.getElementById('trackUploadList');
+  const btn = document.getElementById('uploadTracksBtn');
+  if (selectedTrackFiles.length === 0) {
+    listEl.textContent = '';
+    btn.disabled = true;
+    return;
+  }
+  listEl.innerHTML = selectedTrackFiles.map(f => `<div>📄 ${f.name} (${(f.size/1024/1024).toFixed(1)} MB)</div>`).join('');
+  btn.disabled = false;
+}
+
+async function uploadSelectedTracks() {
+  const cfg = getCfg();
+  if (!cfg.ghPat) { alert('GitHub PATを設定してください'); return; }
+  if (selectedTrackFiles.length === 0) return;
+
+  const btn = document.getElementById('uploadTracksBtn');
+  btn.disabled = true;
+  btn.textContent = 'アップロード中...';
+
+  try {
+    for (let i = 0; i < selectedTrackFiles.length; i++) {
+      const file = selectedTrackFiles[i];
+      btn.textContent = `アップロード中 ${i+1}/${selectedTrackFiles.length}...`;
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      // 既存ファイルのSHAを取得（上書き用）
+      const checkRes = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/tracks/${encodeURIComponent(file.name)}`);
+      const sha = checkRes.ok ? (await checkRes.json()).sha : undefined;
+      const uploadRes = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/tracks/${encodeURIComponent(file.name)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ message: `upload track ${file.name}`, content: base64, branch: 'main', ...(sha ? { sha } : {}) }),
+      });
+      if (!uploadRes.ok) {
+        const err = await uploadRes.text();
+        throw new Error(`${file.name} のアップロード失敗: ${uploadRes.status} ${err}`);
+      }
+    }
+    btn.textContent = '完了！';
+    alert(`${selectedTrackFiles.length}曲をアップロードしました！`);
+    selectedTrackFiles = [];
+    document.getElementById('trackFiles').value = '';
+    document.getElementById('trackUploadList').innerHTML = '';
+    await loadTrackList();
+  } catch(e) {
+    alert('エラー: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'GitHubにアップロード';
+  }
+}
+
+async function loadTrackList() {
+  const cfg = getCfg();
+  const listEl = document.getElementById('trackList');
+  const badge = document.getElementById('trackCountBadge');
+  if (!cfg.ghPat) { listEl.textContent = 'GitHub PATを設定してください'; return; }
+  listEl.textContent = '読み込み中...';
+  try {
+    const res = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/tracks`);
+    if (res.status === 404) { listEl.textContent = 'tracks/フォルダがまだありません'; badge.textContent = '0曲'; return; }
+    const files = await res.json();
+    const mp3s = files.filter(f => f.name.toLowerCase().endsWith('.mp3')).sort((a,b) => a.name.localeCompare(b.name));
+    badge.textContent = `${mp3s.length}曲`;
+    listEl.innerHTML = mp3s.length === 0
+      ? '<span style="color:var(--sub)">まだ楽曲がありません</span>'
+      : mp3s.map(f => `<div style="padding:3px 0;border-bottom:1px solid var(--bd)">🎵 ${f.name}</div>`).join('');
+  } catch(e) {
+    listEl.textContent = 'エラー: ' + e.message;
+  }
 }
 
 // ── STEP 2: オーディオ結合（Cloudflare Worker） ──────
@@ -1125,12 +1164,9 @@ function getCfg() {
     ytSecret:   document.getElementById('cfgYtSecret').value.trim(),
     ytRefresh:  document.getElementById('cfgYtRefresh').value.trim(),
     ghPat:      document.getElementById('cfgGhPat').value.trim(),
-    tracks:     document.getElementById('cfgTracks').value,
     duration:   document.getElementById('cfgDuration').value,
-    model:      document.getElementById('cfgModel').value,
     privacy:    document.getElementById('cfgPrivacy').value,
     schedTime:  document.getElementById('cfgSchedTime').value,
-    testMode:   document.getElementById('cfgTestMode').classList.contains('on'),
   };
 }
 
@@ -1147,20 +1183,10 @@ function applyCfg() {
   if (c.ytSecret)   document.getElementById('cfgYtSecret').value   = c.ytSecret;
   if (c.ytRefresh)  document.getElementById('cfgYtRefresh').value  = c.ytRefresh;
   if (c.ghPat)      document.getElementById('cfgGhPat').value      = c.ghPat;
-  if (c.tracks)     document.getElementById('cfgTracks').value     = c.tracks;
   if (c.duration)   document.getElementById('cfgDuration').value   = c.duration;
-  if (c.model)      document.getElementById('cfgModel').value      = c.model;
   if (c.privacy)    document.getElementById('cfgPrivacy').value    = c.privacy;
   if (c.schedTime)  document.getElementById('cfgSchedTime').value  = c.schedTime;
-  if (c.testMode)   document.getElementById('cfgTestMode').classList.add('on');
   if (c.replicate && !c.replicate.startsWith('r8_xxxx')) setStatus('ok','設定済み');
-}
-
-function toggleTestMode() {
-  const t = document.getElementById('cfgTestMode');
-  t.classList.toggle('on');
-  document.getElementById('testModeLabel').textContent =
-    t.classList.contains('on') ? `保存済み楽曲（${LOCAL_TRACK_COUNT}曲）を使用 — 音楽生成スキップ` : 'Replicate MusicGenで毎回生成';
 }
 
 // ── スケジュール ─────────────────────────────────────
