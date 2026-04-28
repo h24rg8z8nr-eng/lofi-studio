@@ -478,7 +478,7 @@ body::before{
 // ── 定数 ─────────────────────────────────────────────
 const STEPS = [
   {key:'music',  name:'楽曲読み込み',    sub:'Suno AI / tracks/ フォルダ'},
-  {key:'audio',  name:'楽曲選択',        sub:'ランダム1曲選択 → workflow内でループ'},
+  {key:'audio',  name:'楽曲結合',        sub:'全曲バイナリ結合 → GitHub Pages'},
   {key:'image',  name:'画像生成',        sub:'Replicate FLUX API'},
   {key:'title',  name:'タイトル生成',    sub:'Canvas + Random Font'},
   {key:'video',  name:'動画生成',        sub:'Cloudflare Workers ffmpeg'},
@@ -783,13 +783,75 @@ async function loadTrackList() {
   }
 }
 
-// ── STEP 2: 楽曲選択（ランダム1曲 → workflowでループ） ──
+// ── STEP 2: 全曲バイナリ結合 → GitHub Pages経由でworkflowへ ──
 async function stepAudio({ audioUrls }) {
-  // ワークフローのffmpegがaloop=-1で無限ループするので、1曲渡すだけでOK
-  const pick = audioUrls[Math.floor(Math.random() * audioUrls.length)];
-  const name = decodeURIComponent(pick.split('/').pop());
-  log(`  ✓ 選曲: ${name}`, 'ok');
-  return { longAudioUrl: pick };
+  const cfg = getCfg();
+
+  // 古い tmp/audio-*.mp3 を削除
+  try {
+    const listRes = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/tmp`);
+    if (listRes.ok) {
+      const files = await listRes.json();
+      for (const f of files) {
+        if (f.name.startsWith('audio-') && f.name.endsWith('.mp3')) {
+          await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/${f.path}`, {
+            method: 'DELETE',
+            body: JSON.stringify({ message: `cleanup old audio ${f.name}`, sha: f.sha, branch: 'main' }),
+          });
+        }
+      }
+    }
+  } catch(_) {}
+
+  // 全曲をバイナリダウンロード
+  log(`  ${audioUrls.length}曲をダウンロード中...`);
+  const buffers = [];
+  for (let i = 0; i < audioUrls.length; i++) {
+    const name = decodeURIComponent(audioUrls[i].split('/').pop());
+    log(`  (${i+1}/${audioUrls.length}) ${name}`);
+    const res = await fetch(audioUrls[i]);
+    if (!res.ok) throw new Error(`ダウンロード失敗: ${name} (${res.status})`);
+    buffers.push(await res.arrayBuffer());
+  }
+
+  // バイナリ結合
+  log(`  ${audioUrls.length}曲を結合中...`);
+  const totalSize = buffers.reduce((s, b) => s + b.byteLength, 0);
+  const merged = new Uint8Array(totalSize);
+  let offset = 0;
+  for (const buf of buffers) { merged.set(new Uint8Array(buf), offset); offset += buf.byteLength; }
+
+  // base64変換（FileReader使用）
+  log(`  GitHubにアップロード中... (${(totalSize/1024/1024).toFixed(1)} MB)`);
+  const base64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(new Blob([merged], { type: 'audio/mpeg' }));
+  });
+
+  // GitHub repoにアップロード
+  const runId = Date.now().toString(36);
+  const path = `tmp/audio-${runId}.mp3`;
+  const uploadRes = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/${path}`, {
+    method: 'PUT',
+    body: JSON.stringify({ message: `tmp audio for ${runId}`, content: base64, branch: 'main' }),
+  });
+  if (!uploadRes.ok) throw new Error(`音声アップロード失敗: ${uploadRes.status} ${await uploadRes.text()}`);
+
+  // GitHub Pages URLを構築し、デプロイ待機
+  const pagesBase = LOCAL_TRACKS_BASE.replace('/tracks', '');
+  const audioUrl = `${pagesBase}/${path}`;
+  log(`  GitHub Pagesのデプロイ待機中...`);
+  for (let i = 0; i < 72; i++) {
+    await new Promise(r => setTimeout(r, 5000));
+    const check = await fetch(audioUrl, { method: 'HEAD', cache: 'no-store' });
+    if (check.ok) {
+      log(`  ✓ ${audioUrls.length}曲結合・アップロード完了`, 'ok');
+      return { longAudioUrl: audioUrl };
+    }
+  }
+  throw new Error('GitHub Pagesのデプロイがタイムアウトしました（6分）。再実行してください。');
 }
 
 // ── STEP 3: 画像生成（Replicate FLUX） ───────────────
