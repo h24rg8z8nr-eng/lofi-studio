@@ -477,12 +477,13 @@ body::before{
 <script>
 // ── 定数 ─────────────────────────────────────────────
 const STEPS = [
-  {key:'music',  name:'楽曲読み込み',    sub:'Suno AI / tracks/ フォルダ'},
-  {key:'audio',  name:'楽曲結合',        sub:'GitHub Actions ffmpeg で全曲結合'},
-  {key:'image',  name:'画像生成',        sub:'Replicate FLUX API'},
-  {key:'title',  name:'タイトル生成',    sub:'Canvas + Random Font'},
-  {key:'video',  name:'動画生成',        sub:'Cloudflare Workers ffmpeg'},
-  {key:'upload', name:'YouTube投稿',     sub:'YouTube Data API v3'},
+  {key:'music',   name:'楽曲読み込み',  sub:'Suno AI / tracks/ フォルダ'},
+  {key:'audio',   name:'楽曲結合',      sub:'GitHub Actions ffmpeg で全曲結合'},
+  {key:'image',   name:'画像生成',      sub:'Replicate FLUX API'},
+  {key:'title',   name:'タイトル生成',  sub:'Canvas + Random Font'},
+  {key:'video',   name:'動画生成',      sub:'GitHub Actions ffmpeg'},
+  {key:'upload',  name:'YouTube投稿',   sub:'YouTube Data API v3'},
+  {key:'cleanup', name:'楽曲削除',      sub:'tracks/ を全削除して次回に備える'},
 ];
 const THEMES = [
   'Late Night Study Session ☕',
@@ -647,7 +648,8 @@ async function run() {
     ['image',  '画像生成中...',        ()  => stepImage(cfg)],
     ['title',  'タイトル生成中...',    ()  => stepTitle()],
     ['video',  '動画生成中...',        (c) => stepVideo(c)],
-    ['upload', 'YouTube投稿中...',     (c) => stepUpload(c)],
+    ['upload',  'YouTube投稿中...',   (c) => stepUpload(c)],
+    ['cleanup', '楽曲削除中...',      ()  => stepCleanupTracks()],
   ];
 
   let ok = true;
@@ -971,6 +973,37 @@ async function stepUpload({ videoUrl, runId }) {
   }
   log('  動画はGitHub Releasesに保存されました: ' + videoUrl, 'ok');
   return { videoId: null };
+}
+
+// ── 楽曲削除（1サイクル完了後にtracks/を全クリア） ────
+async function stepCleanupTracks() {
+  const cfg = getCfg();
+  log('  tracks/ フォルダの楽曲を削除中...');
+
+  const listRes = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/tracks`);
+  if (!listRes.ok) {
+    log('  tracks/ フォルダが見つかりません（スキップ）', 'warn');
+    return {};
+  }
+
+  const files = await listRes.json();
+  const mp3s = files.filter(f => f.name.toLowerCase().endsWith('.mp3'));
+
+  if (mp3s.length === 0) {
+    log('  削除対象の楽曲がありません', 'warn');
+    return {};
+  }
+
+  for (const f of mp3s) {
+    await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/${f.path}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ message: `cleanup track ${f.name}`, sha: f.sha, branch: 'main' }),
+    });
+    log(`  🗑 ${f.name}`);
+  }
+
+  log(`  ✓ ${mp3s.length}曲を削除しました。次回は新しい曲をアップロードしてください。`, 'ok');
+  return {};
 }
 
 async function _unused_stepUpload({ videoUrl }) {
