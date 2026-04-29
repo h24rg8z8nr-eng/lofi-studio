@@ -41,7 +41,15 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
       - name: Download audio
-        run: curl -L --fail -o audio.mp3 "${{ inputs.audio_url }}"
+        run: |
+          if ls tracks/*.mp3 2>/dev/null | grep -q .; then
+            ls tracks/*.mp3 | sort | while IFS= read -r f; do
+              echo "file '$f'"
+            done > tlist.txt
+            ffmpeg -f concat -safe 0 -i tlist.txt -c copy audio.mp3
+          else
+            curl -L --fail -o audio.mp3 "${{ inputs.audio_url }}"
+          fi
 
       - name: Download main image
         run: curl -L --fail -o main_raw "${{ inputs.image_url }}"
