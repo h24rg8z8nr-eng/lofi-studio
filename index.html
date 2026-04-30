@@ -377,6 +377,13 @@ body::before{
     </div>
 
     <div class="card">
+      <div class="ct">YouTube管理</div>
+      <div class="tsub" style="margin-bottom:12px">投稿済み動画の説明欄にAI開示文を一括追加します。YouTubeの収益化ポリシーに対応するために必要です。</div>
+      <button class="btn btn-sec" onclick="updateExistingVideoDescriptions()">既存動画にAI開示文を追加</button>
+      <div id="ytUpdateLog" style="margin-top:10px;font-size:11px;line-height:1.8;color:var(--tx)"></div>
+    </div>
+
+    <div class="card">
       <div class="ct">生成パラメータ</div>
       <div class="fi-row">
         <div class="field">
@@ -546,6 +553,7 @@ let lastTitleDataUrl = null;
 let lastTitleFont = null;
 
 const LOCAL_TRACKS_BASE = 'https://h24rg8z8nr-eng.github.io/lofi-studio/tracks';
+const AI_DISCLOSURE = '\n\n🎵 Music generated with Suno AI (Pro Plan)\n🎨 Visuals generated with AI\n\nThis content contains AI-generated music and imagery.';
 
 // ── 状態 ────────────────────────────────────────────
 let running = false;
@@ -973,6 +981,74 @@ async function stepUpload({ videoUrl, runId }) {
   }
   log('  動画はGitHub Releasesに保存されました: ' + videoUrl, 'ok');
   return { videoId: null };
+}
+
+// ── 既存YouTube動画へのAI開示文一括追加 ─────────────
+async function updateExistingVideoDescriptions() {
+  const cfg = getCfg();
+  const logEl = document.getElementById('ytUpdateLog');
+  const addLog = (msg, color) => { logEl.innerHTML += `<div style="color:${color||'var(--tx)'}">${msg}</div>`; };
+  logEl.innerHTML = '';
+
+  if (!cfg.ytClientId || !cfg.ytRefresh) { addLog('❌ YouTube認証情報が設定されていません', 'var(--err)'); return; }
+  if (!cfg.ghPat) { addLog('❌ GitHub PATが設定されていません', 'var(--err)'); return; }
+
+  addLog('🔑 YouTubeアクセストークン取得中...');
+  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ client_id: cfg.ytClientId, client_secret: cfg.ytSecret, refresh_token: cfg.ytRefresh, grant_type: 'refresh_token' }),
+  });
+  const tokenData = await tokenRes.json();
+  const accessToken = tokenData.access_token;
+  if (!accessToken) { addLog('❌ アクセストークン取得失敗: ' + JSON.stringify(tokenData), 'var(--err)'); return; }
+  addLog('✓ アクセストークン取得完了');
+
+  // GitHub Releasesから全VideoIDを収集
+  addLog('📋 GitHub Releasesから動画IDを収集中...');
+  const relRes = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/releases?per_page=100`);
+  if (!relRes.ok) { addLog('❌ リリース取得失敗: ' + relRes.status, 'var(--err)'); return; }
+  const releases = await relRes.json();
+  const videoIds = [];
+  for (const r of releases) {
+    const match = (r.body || '').match(/https:\/\/youtu\.be\/([A-Za-z0-9_-]+)/);
+    if (match) videoIds.push(match[1]);
+  }
+  if (videoIds.length === 0) { addLog('ℹ️ 更新対象の動画が見つかりません'); return; }
+  addLog(`✓ ${videoIds.length}本の動画を検出`);
+
+  let updated = 0, skipped = 0;
+  for (const videoId of videoIds) {
+    // 現在のsnippetを取得
+    const getRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const getData = await getRes.json();
+    const item = getData.items?.[0];
+    if (!item) { addLog(`⚠️ ${videoId}: 動画が見つかりません（削除済み？）`, 'var(--sub)'); continue; }
+
+    const snippet = item.snippet;
+    if (snippet.description.includes('Suno AI')) {
+      addLog(`⏭ ${snippet.title.slice(0,30)}... — 開示文あり（スキップ）`, 'var(--sub)');
+      skipped++; continue;
+    }
+
+    // 開示文を追記してPUT
+    const newSnippet = { ...snippet, description: snippet.description + AI_DISCLOSURE };
+    const putRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: videoId, snippet: newSnippet }),
+    });
+    if (putRes.ok) {
+      addLog(`✅ ${snippet.title.slice(0,30)}... — 更新完了`, '#4caf50');
+      updated++;
+    } else {
+      const err = await putRes.json();
+      addLog(`❌ ${videoId}: 更新失敗 — ${err.error?.message}`, 'var(--err)');
+    }
+  }
+  addLog(`<br>完了: ${updated}本更新 / ${skipped}本スキップ`, '#4caf50');
 }
 
 // ── 楽曲削除（1サイクル完了後にtracks/を全クリア） ────
