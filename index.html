@@ -1257,7 +1257,14 @@ async function generateTitleCard() {
   ctx.globalAlpha = 1;
 
   // タイトル文字（影付き）
-  ctx.font = `${font.weight} ${font.size}px "${font.family}", sans-serif`;
+  // フォントサイズを自動調整（テキストが画面幅の78%以内に収まるまで縮小）
+  let fontSize = font.size;
+  const maxTextWidth = W * 0.78;
+  ctx.font = `${font.weight} ${fontSize}px "${font.family}", sans-serif`;
+  while (ctx.measureText(TITLE_TEXT).width > maxTextWidth && fontSize > 60) {
+    fontSize -= 4;
+    ctx.font = `${font.weight} ${fontSize}px "${font.family}", sans-serif`;
+  }
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.shadowColor = 'rgba(0,0,0,0.6)';
