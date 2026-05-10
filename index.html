@@ -441,6 +441,27 @@ body::before{
     </div>
 
     <div class="card">
+      <div class="ct">アニメーション管理（しずく ループ動画）</div>
+      <div class="tsub" style="margin-bottom:12px">しずくのループアニメーション（MP4）をアップロードすると、静止画の代わりに使用されます。Runway ML等で作成した動画に対応。</div>
+      <div class="field">
+        <label class="fl">MP4ファイルを選択</label>
+        <input type="file" id="animFiles" accept="video/mp4,.mp4" multiple style="display:none" onchange="onAnimFilesSelected()">
+        <button class="btn btn-sec" style="margin:0;width:100%" onclick="document.getElementById('animFiles').click()">ファイルを選択</button>
+      </div>
+      <div id="animUploadList" style="margin-top:8px;font-size:11px;color:var(--sub)"></div>
+      <button class="btn btn-run" style="margin-top:10px" id="uploadAnimsBtn" onclick="uploadSelectedAnims()" disabled>GitHubにアップロード</button>
+      <div style="margin-top:14px;border-top:1px solid var(--bd);padding-top:12px">
+        <div style="font-size:11px;color:var(--sub);margin-bottom:6px">現在のアニメーション <span id="animCountBadge">—</span></div>
+        <div id="animList" style="font-size:11px;color:var(--tx)">読み込み中...</div>
+        <button class="btn btn-sec" style="margin-top:8px;padding:6px 12px;width:auto;font-size:10px" onclick="loadAnimList()">リストを更新</button>
+      </div>
+      <div style="margin-top:12px;background:var(--s2);border-radius:8px;padding:10px;font-size:10px;color:var(--sub);line-height:1.8">
+        ⚠️ アニメーションを有効にするにはGitHubワークフローの変更が必要です。<br>
+        <a href="https://github.com/h24rg8z8nr-eng/lofi-studio/blob/main/.github/workflows/generate-video.yml" target="_blank" style="color:var(--acc)">ワークフローを編集</a>の「Download audio」ステップの前に追加するコードはキャラタブに記載しています。
+      </div>
+    </div>
+
+    <div class="card">
       <div class="ct">スケジュール</div>
       <div class="trow">
         <div>
@@ -563,6 +584,52 @@ body::before{
         <div style="background:var(--s2);border-radius:6px;padding:8px">📖 音楽を聴きながら読書</div>
         <div style="background:var(--s2);border-radius:6px;padding:8px">🚶‍♀️ 夜の散歩（屋外）</div>
         <div style="background:var(--s2);border-radius:6px;padding:8px">🎧 デスク俯瞰</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ct">② チャンネルアート（FLUXプロンプト）</div>
+      <div class="tsub" style="margin-bottom:12px">ChatGPT・FLUX・Midjourneyに貼り付けて生成してください</div>
+
+      <div style="font-size:11px;font-weight:700;margin-bottom:6px;color:var(--acc)">📺 YouTubeバナー（2560×1440px）</div>
+      <div style="background:var(--s2);border-radius:8px;padding:10px;font-size:9px;line-height:1.9;color:var(--tx);word-break:break-all;margin-bottom:12px">
+        YouTube channel banner for lo-fi music channel, featuring anime girl Shizuku: dark brown semi-long hair with slight wave, sleepy amber eyes, wearing dusty blue oversized cardigan, large black headphones with crescent moon symbol, sitting at cozy desk in night room, warm lamp light, potted plants, old radio, open notebook. Channel name "lo-fi chillhop BGM channel" in elegant font on left. Color palette: #D98C5F #5C6B73 #7A8F7B #1F2A44. Widescreen 16:9, cinematic lo-fi anime illustration style, muted earthy tones, peaceful night atmosphere.
+      </div>
+
+      <div style="font-size:11px;font-weight:700;margin-bottom:6px;color:var(--acc)">👤 プロフィールアイコン（800×800px 正方形）</div>
+      <div style="background:var(--s2);border-radius:8px;padding:10px;font-size:9px;line-height:1.9;color:var(--tx);word-break:break-all;margin-bottom:12px">
+        Square profile icon, anime girl Shizuku face portrait: dark brown semi-long hair with natural wave and slight red tint, sleepy droopy amber-hazel eyes, moon-shaped hairpin, large black headphones with crescent moon, soft expression. Dark navy background #1F2A44 with subtle warm light. Clean circle-crop friendly composition, lo-fi anime illustration style, muted warm tones, high detail.
+      </div>
+
+      <div style="font-size:11px;font-weight:700;margin-bottom:6px;color:var(--acc)">🖼 サムネイルテンプレート（1280×720px）</div>
+      <div style="background:var(--s2);border-radius:8px;padding:10px;font-size:9px;line-height:1.9;color:var(--tx);word-break:break-all">
+        YouTube thumbnail for lo-fi music video: anime girl Shizuku in lower-right corner, bust shot, dark brown hair, large headphones with moon mark, holding steaming mug with leaf logo, soft expression. Left side: large text area in dark #1F2A44. Warm amber lamp glow, cozy night room background blurred. Lo-fi anime style, 16:9 thumbnail composition, text-safe left zone, detailed illustration.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ct">① アニメーション — ワークフロー追加コード</div>
+      <div class="tsub" style="margin-bottom:12px">Runway ML等で作ったMP4をアップロード後、以下をワークフローに追加してください<br>
+        <a href="https://github.com/h24rg8z8nr-eng/lofi-studio/edit/main/.github/workflows/generate-video.yml" target="_blank" style="color:var(--acc)">→ ワークフローを編集（GitHub Web UI）</a>
+      </div>
+      <div style="background:#0d1117;border-radius:8px;padding:12px;font-size:9px;line-height:1.9;color:#e6edf3;font-family:monospace;overflow-x:auto;word-break:break-all">
+- name: Use animation loop if available<br>
+&nbsp;&nbsp;run: |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;if ls animations/*.mp4 2>/dev/null | grep -q .; then<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ANIM=$(ls animations/*.mp4 | shuf -n 1)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;echo "ANIM_FILE=$ANIM" >> $GITHUB_ENV<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;echo "USE_ANIM=true" >> $GITHUB_ENV<br>
+&nbsp;&nbsp;&nbsp;&nbsp;else<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;echo "USE_ANIM=false" >> $GITHUB_ENV<br>
+&nbsp;&nbsp;&nbsp;&nbsp;fi<br>
+<br>
+# 「Compose final video」ステップの run: の先頭に追加:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;if [ "$USE_ANIM" = "true" ]; then<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ffmpeg -stream_loop -1 -i "$ANIM_FILE" \<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-i audio.mp3 -shortest \<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-vf "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2" \<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-c:v libx264 -c:a aac -b:a 192k output.mp4<br>
+&nbsp;&nbsp;&nbsp;&nbsp;else
       </div>
     </div>
   </div>
@@ -708,7 +775,7 @@ window.onload = () => {
 function sw(i) {
   document.querySelectorAll('.page').forEach((p,j) => p.classList.toggle('on', i===j));
   document.querySelectorAll('.tab').forEach((t,j) => t.classList.toggle('on', i===j));
-  if (i === 1) { loadTrackList(); loadImageList(); }
+  if (i === 1) { loadTrackList(); loadImageList(); loadAnimList(); }
 }
 
 // ── ステップ描画 ─────────────────────────────────────
@@ -983,6 +1050,74 @@ async function loadImageList() {
     listEl.innerHTML = imgs.length === 0
       ? '<span style="color:var(--sub)">まだ画像がありません（FLUX生成で代替）</span>'
       : imgs.map(f => `<div style="padding:3px 0;border-bottom:1px solid var(--bd)">🖼 ${f.name}</div>`).join('');
+  } catch(e) {
+    listEl.textContent = 'エラー: ' + e.message;
+  }
+}
+
+// ── アニメーション管理 ────────────────────────────────
+let selectedAnimFiles = [];
+
+function onAnimFilesSelected() {
+  const input = document.getElementById('animFiles');
+  selectedAnimFiles = Array.from(input.files);
+  const listEl = document.getElementById('animUploadList');
+  const btn = document.getElementById('uploadAnimsBtn');
+  listEl.innerHTML = selectedAnimFiles.map(f => `🎬 ${f.name} (${(f.size/1024/1024).toFixed(1)}MB)`).join('<br>');
+  btn.disabled = selectedAnimFiles.length === 0;
+}
+
+async function uploadSelectedAnims() {
+  const cfg = getCfg();
+  if (!cfg.ghPat) { alert('GitHub PATを設定してください'); return; }
+  if (selectedAnimFiles.length === 0) return;
+  const btn = document.getElementById('uploadAnimsBtn');
+  btn.disabled = true;
+  btn.textContent = 'アップロード中...（大きなファイルは時間がかかります）';
+  try {
+    for (const file of selectedAnimFiles) {
+      if (file.size > 90 * 1024 * 1024) {
+        alert(`${file.name} は90MBを超えています。GitHub APIの制限により25MB以下を推奨します。`);
+        continue;
+      }
+      const buf = await file.arrayBuffer();
+      const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+      const checkRes = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/animations/${encodeURIComponent(file.name)}`);
+      const sha = checkRes.ok ? (await checkRes.json()).sha : undefined;
+      const uploadRes = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/animations/${encodeURIComponent(file.name)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ message: `upload animation ${file.name}`, content: b64, branch: 'main', ...(sha ? { sha } : {}) }),
+      });
+      if (!uploadRes.ok) throw new Error(`${file.name} のアップロード失敗: ${uploadRes.status}`);
+    }
+    btn.textContent = '完了！';
+    alert(`アップロード完了！ワークフローを更新すると動画に使用されます🎬`);
+    selectedAnimFiles = [];
+    document.getElementById('animFiles').value = '';
+    document.getElementById('animUploadList').innerHTML = '';
+    await loadAnimList();
+  } catch(e) {
+    alert('エラー: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'GitHubにアップロード';
+  }
+}
+
+async function loadAnimList() {
+  const cfg = getCfg();
+  const listEl = document.getElementById('animList');
+  const badge = document.getElementById('animCountBadge');
+  if (!cfg.ghPat) { listEl.textContent = 'GitHub PATを設定してください'; return; }
+  try {
+    const res = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/animations`);
+    if (res.status === 404) { listEl.textContent = 'animations/フォルダがまだありません'; badge.textContent = '0件'; return; }
+    const files = await res.json();
+    const vids = files.filter(f => /\.mp4$/i.test(f.name));
+    badge.textContent = `${vids.length}件`;
+    listEl.innerHTML = vids.length === 0
+      ? '<span style="color:var(--sub)">まだアニメーションがありません</span>'
+      : vids.map(f => `<div style="padding:3px 0;border-bottom:1px solid var(--bd)">🎬 ${f.name}</div>`).join('');
   } catch(e) {
     listEl.textContent = 'エラー: ' + e.message;
   }
@@ -1432,6 +1567,23 @@ async function generateTitleCard() {
   const font    = TITLE_FONTS[Math.floor(Math.random()*TITLE_FONTS.length)];
   const palette = TITLE_PALETTES[Math.floor(Math.random()*TITLE_PALETTES.length)];
 
+  // しずくシーン画像を images/ から取得
+  let bgImageUrl = null;
+  try {
+    const cfg = getCfg();
+    if (cfg.ghPat) {
+      const res = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/images`);
+      if (res.ok) {
+        const files = await res.json();
+        const imgs = files.filter(f => /\.(jpe?g|png|webp)$/i.test(f.name));
+        if (imgs.length > 0) {
+          const pick = imgs[Math.floor(Math.random() * imgs.length)];
+          bgImageUrl = `${LOCAL_IMAGES_BASE}/${encodeURIComponent(pick.name)}`;
+        }
+      }
+    }
+  } catch(e) { /* グラデーション背景にフォールバック */ }
+
   // フォント読み込みを待機
   try {
     await document.fonts.load(`${font.weight} ${font.size}px "${font.family}"`);
@@ -1442,60 +1594,122 @@ async function generateTitleCard() {
   cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d');
 
-  // 背景グラデーション
-  const grad = ctx.createLinearGradient(0, 0, W, H);
-  grad.addColorStop(0, palette.bg[0]);
-  grad.addColorStop(1, palette.bg[1]);
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
+  if (bgImageUrl) {
+    // ── しずくシーン画像モード ──────────────────────────
+    await new Promise(resolve => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => { ctx.drawImage(img, 0, 0, W, H); resolve(); };
+      img.onerror = () => resolve();
+      img.src = bgImageUrl;
+    });
 
-  // ノイズテクスチャ風（薄いランダムドット）
-  ctx.globalAlpha = 0.04;
-  for (let i = 0; i < 2500; i++) {
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(Math.random()*W, Math.random()*H, 1, 1);
-  }
-  ctx.globalAlpha = 1;
+    // 左側に暗いグラデーションオーバーレイ（テキスト読みやすさ確保）
+    const leftOverlay = ctx.createLinearGradient(0, 0, W * 0.72, 0);
+    leftOverlay.addColorStop(0,   'rgba(10, 8, 20, 0.88)');
+    leftOverlay.addColorStop(0.55,'rgba(10, 8, 20, 0.60)');
+    leftOverlay.addColorStop(1,   'rgba(10, 8, 20, 0.00)');
+    ctx.fillStyle = leftOverlay;
+    ctx.fillRect(0, 0, W, H);
 
-  // 装飾ライン（上下）
-  ctx.strokeStyle = palette.accent;
-  ctx.globalAlpha = 0.4;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(W*0.15, H*0.32); ctx.lineTo(W*0.85, H*0.32);
-  ctx.moveTo(W*0.15, H*0.68); ctx.lineTo(W*0.85, H*0.68);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
+    // 月・星の装飾（左上）
+    ctx.fillStyle = '#D98C5F';
+    ctx.globalAlpha = 0.55;
+    ctx.font = '48px serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('🌙', 80, 90);
+    ctx.globalAlpha = 1;
 
-  // タイトル文字（影付き）
-  // フォントサイズを自動調整（テキストが画面幅の78%以内に収まるまで縮小）
-  let fontSize = font.size;
-  const maxTextWidth = W * 0.78;
-  ctx.font = `${font.weight} ${fontSize}px "${font.family}", sans-serif`;
-  while (ctx.measureText(TITLE_TEXT).width > maxTextWidth && fontSize > 60) {
-    fontSize -= 4;
+    // 装飾ライン（左ゾーン）
+    ctx.strokeStyle = '#D98C5F';
+    ctx.globalAlpha = 0.45;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(W*0.07, H*0.33); ctx.lineTo(W*0.56, H*0.33);
+    ctx.moveTo(W*0.07, H*0.67); ctx.lineTo(W*0.56, H*0.67);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // タイトル文字（左寄せ、画面幅の48%以内）
+    let fontSize = font.size;
+    const maxTextWidth = W * 0.46;
     ctx.font = `${font.weight} ${fontSize}px "${font.family}", sans-serif`;
-  }
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.shadowColor = 'rgba(0,0,0,0.6)';
-  ctx.shadowBlur = 24;
-  ctx.shadowOffsetY = 6;
-  ctx.fillStyle = palette.text;
-  ctx.fillText(TITLE_TEXT, W/2, H/2);
+    while (ctx.measureText(TITLE_TEXT).width > maxTextWidth && fontSize > 56) {
+      fontSize -= 4;
+      ctx.font = `${font.weight} ${fontSize}px "${font.family}", sans-serif`;
+    }
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.9)';
+    ctx.shadowBlur = 32;
+    ctx.shadowOffsetY = 6;
+    ctx.fillStyle = '#FFE4C0';
+    ctx.fillText(TITLE_TEXT, W * 0.29, H / 2);
 
-  // サブテキスト
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetY = 0;
-  ctx.font = `400 28px "Space Mono", monospace`;
-  ctx.fillStyle = palette.accent;
-  ctx.globalAlpha = 0.7;
-  ctx.fillText('☕  RELAX  •  STUDY  •  CHILL  ☕', W/2, H*0.78);
-  ctx.globalAlpha = 1;
+    // サブテキスト
+    ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+    ctx.font = `400 24px "Space Mono", monospace`;
+    ctx.fillStyle = '#D98C5F';
+    ctx.globalAlpha = 0.85;
+    ctx.fillText('☕  RELAX  •  STUDY  •  CHILL  ☕', W * 0.29, H * 0.77);
+
+    // キャラクタークレジット（右下・小）
+    ctx.font = '400 16px "Space Mono", monospace';
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.textAlign = 'right';
+    ctx.fillText('Shizuku Tsukishiro  🌙', W - 36, H - 28);
+    ctx.globalAlpha = 1;
+
+  } else {
+    // ── グラデーション背景モード（images/ が空のとき）──
+    const grad = ctx.createLinearGradient(0, 0, W, H);
+    grad.addColorStop(0, palette.bg[0]);
+    grad.addColorStop(1, palette.bg[1]);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.globalAlpha = 0.04;
+    for (let i = 0; i < 2500; i++) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(Math.random()*W, Math.random()*H, 1, 1);
+    }
+    ctx.globalAlpha = 1;
+
+    ctx.strokeStyle = palette.accent;
+    ctx.globalAlpha = 0.4;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(W*0.15, H*0.32); ctx.lineTo(W*0.85, H*0.32);
+    ctx.moveTo(W*0.15, H*0.68); ctx.lineTo(W*0.85, H*0.68);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    let fontSize = font.size;
+    const maxTextWidth = W * 0.78;
+    ctx.font = `${font.weight} ${fontSize}px "${font.family}", sans-serif`;
+    while (ctx.measureText(TITLE_TEXT).width > maxTextWidth && fontSize > 60) {
+      fontSize -= 4;
+      ctx.font = `${font.weight} ${fontSize}px "${font.family}", sans-serif`;
+    }
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur = 24;
+    ctx.shadowOffsetY = 6;
+    ctx.fillStyle = palette.text;
+    ctx.fillText(TITLE_TEXT, W/2, H/2);
+
+    ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+    ctx.font = `400 28px "Space Mono", monospace`;
+    ctx.fillStyle = palette.accent;
+    ctx.globalAlpha = 0.7;
+    ctx.fillText('☕  RELAX  •  STUDY  •  CHILL  ☕', W/2, H*0.78);
+    ctx.globalAlpha = 1;
+  }
 
   lastTitleFont = font;
   lastTitleDataUrl = cv.toDataURL('image/png');
-  return { dataUrl: lastTitleDataUrl, font: font.family };
+  return { dataUrl: lastTitleDataUrl, font: bgImageUrl ? font.family + ' [scene]' : font.family };
 }
 
 // プレビュー描画
