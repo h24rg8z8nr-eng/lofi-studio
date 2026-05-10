@@ -146,7 +146,7 @@ jobs:
           FILE_SIZE=$(stat -c%s output.mp4)
           TITLE="lo-fi chillhop BGM channel - $(date '+%Y.%m.%d')"
           PRIVACY="${{ inputs.privacy }}"
-          META="{\"snippet\":{\"title\":\"$TITLE\",\"description\":\"Relaxing lo-fi hip hop music for studying, working, and relaxing.\\n\\n#lofi #chillhop #bgm #studymusic\",\"categoryId\":\"10\",\"tags\":[\"lofi\",\"chillhop\",\"bgm\",\"study music\",\"relaxing\",\"lofi hip hop\"]},\"status\":{\"privacyStatus\":\"$PRIVACY\"}}"
+          META="{\"snippet\":{\"title\":\"$TITLE\",\"description\":\"Relaxing lo-fi hip hop music for studying, working, and relaxing.\\n\\n#lofi #chillhop #bgm #studymusic\\n\\n🎵 Music generated with Suno AI (Pro Plan)\\n🎨 Visuals generated with AI\\n\\nThis content contains AI-generated music and imagery.\",\"categoryId\":\"10\",\"tags\":[\"lofi\",\"chillhop\",\"bgm\",\"study music\",\"relaxing\",\"lofi hip hop\"]},\"status\":{\"privacyStatus\":\"$PRIVACY\"}}"
 
           INIT_RESPONSE=$(curl -sD - -X POST \
             "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status" \
