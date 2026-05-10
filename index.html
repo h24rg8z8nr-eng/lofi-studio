@@ -298,6 +298,7 @@ body::before{
   <button class="tab" onclick="sw(1)">設定</button>
   <button class="tab" onclick="sw(2)">履歴</button>
   <button class="tab" onclick="sw(3)">コスト</button>
+  <button class="tab" onclick="sw(4)">キャラ</button>
 </div>
 
 <div class="pages">
@@ -479,6 +480,76 @@ body::before{
     </div>
   </div>
 
+  <!-- PAGE 4: キャラクター -->
+  <div class="page" id="p4">
+    <div class="card" style="text-align:center;padding-top:20px">
+      <div style="font-size:22px;font-weight:700;letter-spacing:2px">月城 しずく</div>
+      <div style="font-size:13px;color:var(--sub);margin-top:4px">Shizuku Tsukishiro　/　Shizu</div>
+      <div style="margin-top:12px;font-size:11px;color:var(--sub);line-height:1.8;text-align:left">
+        深夜2時、静かな部屋で音楽と一緒に勉強している女の子。<br>
+        "見るだけで落ち着く存在"を目指した、Lo-fi / Chillhop特化のマスコットキャラクター。
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ct">外見設定</div>
+      <div style="display:grid;gap:8px;font-size:11px">
+        <div class="cost-row"><span class="cost-label">髪型</span><span class="cost-val" style="font-size:10px;text-align:right">セミロング・外ハネ・ダークブラウン＋赤み</span></div>
+        <div class="cost-row"><span class="cost-label">目</span><span class="cost-val" style="font-size:10px;text-align:right">眠たげなタレ目・アンバー〜ヘーゼル</span></div>
+        <div class="cost-row"><span class="cost-label">服装</span><span class="cost-val" style="font-size:10px;text-align:right">オーバーサイズニット・カーディガン・ロングスカート</span></div>
+        <div class="cost-row"><span class="cost-label">アイコン</span><span class="cost-val" style="font-size:10px;text-align:right">ヘッドフォン（月マーク）・マグカップ（葉ロゴ）</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ct">カラーパレット</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+        <div style="text-align:center"><div style="width:44px;height:44px;border-radius:8px;background:#D98C5F"></div><div style="font-size:8px;color:var(--sub);margin-top:3px">テラコッタ</div></div>
+        <div style="text-align:center"><div style="width:44px;height:44px;border-radius:8px;background:#5C6B73"></div><div style="font-size:8px;color:var(--sub);margin-top:3px">ダスティブルー</div></div>
+        <div style="text-align:center"><div style="width:44px;height:44px;border-radius:8px;background:#7A8F7B"></div><div style="font-size:8px;color:var(--sub);margin-top:3px">セージグリーン</div></div>
+        <div style="text-align:center"><div style="width:44px;height:44px;border-radius:8px;background:#F2E6D8;border:1px solid var(--bd)"></div><div style="font-size:8px;color:var(--sub);margin-top:3px">クリーム</div></div>
+        <div style="text-align:center"><div style="width:44px;height:44px;border-radius:8px;background:#4A342B"></div><div style="font-size:8px;color:var(--sub);margin-top:3px">くすみブラウン</div></div>
+        <div style="text-align:center"><div style="width:44px;height:44px;border-radius:8px;background:#1F2A44"></div><div style="font-size:8px;color:var(--sub);margin-top:3px">ナイトネイビー</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ct">バックストーリー</div>
+      <div style="font-size:11px;color:var(--tx);line-height:2">
+        静かな夜が好きな女の子。<br>
+        昼間は人混みが少し苦手だけど、深夜の部屋では安心して過ごせる。<br>
+        雨音や街の灯りを眺めながら、誰かの「頑張る時間」にそっと寄り添う音楽を聴いている。
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ct">好きなもの</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">
+        <span style="background:var(--s2);border-radius:20px;padding:5px 12px;font-size:10px">🎵 Lo-fi Hip Hop</span>
+        <span style="background:var(--s2);border-radius:20px;padding:5px 12px;font-size:10px">🌧 雨の音</span>
+        <span style="background:var(--s2);border-radius:20px;padding:5px 12px;font-size:10px">☕ コーヒー</span>
+        <span style="background:var(--s2);border-radius:20px;padding:5px 12px;font-size:10px">🌿 観葉植物</span>
+        <span style="background:var(--s2);border-radius:20px;padding:5px 12px;font-size:10px">📚 古い本と文房具</span>
+        <span style="background:var(--s2);border-radius:20px;padding:5px 12px;font-size:10px">🌙 夜の散歩</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ct">画像生成シーン一覧</div>
+      <div class="tsub" style="margin-bottom:10px">動画生成時にランダムで使用される しずく のシーン</div>
+      <div style="display:grid;gap:6px;font-size:10px">
+        <div style="background:var(--s2);border-radius:6px;padding:8px">🖥 深夜の勉強机（メイン）</div>
+        <div style="background:var(--s2);border-radius:6px;padding:8px">🌧 雨の夜・窓際</div>
+        <div style="background:var(--s2);border-radius:6px;padding:8px">😴 うたた寝シーン</div>
+        <div style="background:var(--s2);border-radius:6px;padding:8px">☕ 深夜カフェ</div>
+        <div style="background:var(--s2);border-radius:6px;padding:8px">🌃 夜景・窓際ぼんやり</div>
+        <div style="background:var(--s2);border-radius:6px;padding:8px">📖 音楽を聴きながら読書</div>
+        <div style="background:var(--s2);border-radius:6px;padding:8px">🚶‍♀️ 夜の散歩（屋外）</div>
+        <div style="background:var(--s2);border-radius:6px;padding:8px">🎧 デスク俯瞰</div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -510,10 +581,50 @@ const LOFI_PROMPTS = [
   'lo-fi bedroom pop, dreamy, tape hiss, soft kick drum, aesthetic vibes',
   'lo-fi winter, music box, snow atmosphere, gentle strings, peaceful solitude',
 ];
+// ── キャラクター設定: 月城 しずく ────────────────────
+const SHIZUKU = {
+  nameJP: '月城 しずく',
+  nameEN: 'Shizuku Tsukishiro',
+  nickname: 'Shizu（シズ）',
+  concept: '深夜2時、静かな部屋で音楽と一緒に勉強している女の子。\n"見るだけで落ち着く存在"を目指した、Lo-fi / Chillhop特化のマスコットキャラクター。',
+  backstory: '静かな夜が好きな女の子。\n昼間は人混みが少し苦手だけど、深夜の部屋では安心して過ごせる。\n雨音や街の灯りを眺めながら、誰かの「頑張る時間」にそっと寄り添う音楽を聴いている。',
+  appearance: {
+    hair: 'セミロング、自然な外ハネ、ゆるい寝ぐせ、軽めの前髪、ダークブラウン＋赤み',
+    eyes: '少し眠たげなタレ目、彩度低めのアンバー〜ヘーゼル',
+    outfit: 'オーバーサイズのニット / カーディガン、ロングスカートorスウェット、左右少し違う靴下',
+    colors: ['#D98C5F','#5C6B73','#7A8F7B','#F2E6D8','#4A342B','#1F2A44'],
+    colorNames: ['ウォームテラコッタ','ダスティブルー','セージグリーン','クリームホワイト','くすみブラウン','ナイトネイビー'],
+  },
+  icons: ['大きめヘッドフォン（月マーク）','湯気のマグカップ（葉ロゴ）','夜空カラーのヘアピン'],
+  items: ['観葉植物','デスクライト','古いラジオ','付箋','文庫本','開いたノート','万年筆'],
+  favorites: ['Lo-fi Hip Hop','雨の音','コーヒー','観葉植物','古い本と文房具','夜の散歩'],
+};
+
+// ── FLUX 画像生成プロンプト（しずく世界観） ────────────
 const IMG_PROMPTS = [
-  'cozy anime girl studying at desk, late night, city view window, warm lamp, lo-fi aesthetic, soft colors, illustration',
-  'japanese cafe interior, rainy window, warm lighting, plants, books, peaceful, anime style',
-  'rooftop at sunset, city skyline, girl with headphones, golden hour, dreamy aesthetic, illustration',
+  // 勉強シーン（メイン）
+  'anime girl Shizuku with dark brown semi-long hair, light bangs, sleepy droopy amber eyes, wearing oversized dusty blue knit sweater, large black headphones with crescent moon symbol, sitting at wooden desk at 2am, steaming mug with leaf logo, open notebook and fountain pen, warm desk lamp glow, potted plants, old radio, city night view through window, cozy lo-fi aesthetic, soft muted colors, detailed anime illustration style, 16:9',
+
+  // 雨の夜・窓際
+  'anime girl Shizuku with dark brown hair slight red tint, natural waves, moon hairpin, wearing warm grey oversized cardigan, large headphones with moon mark, sitting by rainy window at night, warm tea mug with leaf logo, reflections on glass, city lights blurred in rain, houseplants in background, lo-fi chillhop aesthetic, soft amber and slate blue tones, cozy melancholy mood, anime illustration, 16:9',
+
+  // うたた寝シーン
+  'anime girl Shizuku with semi-long dark brown hair, mismatched socks, sage green hoodie, large black headphones with crescent moon resting on head, fallen asleep on open notebook at desk, warm lamp light, steaming mug cooling beside her, sticky notes on wall, bookshelf with stacked novels, peaceful late night atmosphere, lo-fi anime style, soft warm lighting, 16:9',
+
+  // カフェシーン
+  'anime girl Shizuku with dark brown semi-long hair, sleepy hazel eyes, wearing dusty blue cable knit sweater, large headphones around neck with moon symbol, sitting in quiet japanese cafe at night, mug with leaf logo, open book and notebook, rain on window outside, warm amber lighting, houseplants, vintage radio on shelf, lo-fi aesthetic, muted earthy tones, anime illustration, 16:9',
+
+  // 夜景・窓際ぼんやりシーン
+  'anime girl Shizuku with dark brown hair and slight red warmth, loose ponytail, moon shaped hairpin, wearing oversized warm grey knit, headphones with moon mark on head, gazing out at night city skyline, chin resting on arms on windowsill, soft lamp reflection, potted trailing plant nearby, open journal, lo-fi contemplative mood, deep navy and warm cream tones, anime style, 16:9',
+
+  // 音楽を聴きながら読書
+  'anime girl Shizuku with dark brown semi-long hair natural wave, light fringe, amber droopy eyes, wearing sage green oversized cardigan, large black headphones with crescent moon, curled up on floor cushion surrounded by books and plants, mug with leaf logo nearby, warm floor lamp, old radio, sticky notes, cozy minimal japanese room, lo-fi bedroom aesthetic, soft illustration style, 16:9',
+
+  // 夜の散歩（屋外）
+  'anime girl Shizuku with dark brown hair slight reddish tone, natural outward curl, moon hairpin, wearing dusty blue knit under long dark coat, large headphones with crescent moon, walking alone on quiet night street, city reflections on wet pavement, warm shop lights, peaceful solitary mood, lo-fi city night aesthetic, muted blue and amber palette, anime illustration style, 16:9',
+
+  // デスク俯瞰
+  'top-down flat lay view of cozy lo-fi study desk at 2am, open notebook with handwriting, fountain pen, steaming mug with leaf logo, headphones with moon mark, small potted plant, cassette tape, old radio, warm lamp light pool on wood surface, sticky notes, anime lo-fi aesthetic, earthy muted tones, illustration style, 16:9',
 ];
 const COST_PER_VIDEO = 0.36;
 
