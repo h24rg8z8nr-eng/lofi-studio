@@ -404,6 +404,15 @@ body::before{
           </select>
         </div>
       </div>
+      <div class="field" style="margin-top:10px">
+        <label class="fl">🖼 画像生成モード</label>
+        <select class="fi" id="cfgImgMode" onchange="updateImgModeDesc()">
+          <option value="variation" selected>バリエーション生成（推奨）</option>
+          <option value="direct">直接使用（同じ画像をローテーション）</option>
+          <option value="flux">FLUX自動生成（アップロード画像を使わない）</option>
+        </select>
+        <div id="imgModeDesc" style="font-size:10px;color:var(--sub);margin-top:6px;line-height:1.7"></div>
+      </div>
     </div>
 
     <div class="card">
@@ -497,7 +506,8 @@ body::before{
     <div class="card">
       <div class="ct">1本あたりの費用（目安）</div>
       <div class="cost-row"><span class="cost-label">Suno AI 楽曲</span><span class="cost-val">Sunoプランに含む</span></div>
-      <div class="cost-row"><span class="cost-label">FLUX 画像生成</span><span class="cost-val">約 $0.003</span></div>
+      <div class="cost-row"><span class="cost-label">FLUX schnell（直接/flux モード）</span><span class="cost-val">約 $0.003</span></div>
+      <div class="cost-row"><span class="cost-label">FLUX dev img2img（variationモード）</span><span class="cost-val">約 $0.025</span></div>
       <div class="cost-row"><span class="cost-label">ffmpeg（GitHub Actions）</span><span class="cost-val">無料</span></div>
       <div class="cost-row"><span class="cost-label">YouTube API</span><span class="cost-val">無料</span></div>
       <div class="cost-row" style="border-top:1px solid var(--bd);margin-top:4px;padding-top:12px">
@@ -1133,33 +1143,78 @@ async function stepAudio({ audioUrls }) {
   return { longAudioUrl: pick };
 }
 
-// ── STEP 3: 画像選択 or FLUX生成 ─────────────────────
+// ── STEP 3: 画像生成（3モード対応） ──────────────────────
+// imgMode: 'variation'（デフォルト）| 'direct' | 'flux'
 async function stepImage(cfg) {
-  // images/ フォルダに画像があれば優先して使用（コスト節約 + しずく世界観統一）
+  const mode = cfg.imgMode || 'variation';
+
+  // images/ フォルダから画像リストを取得
+  let imgs = [];
   try {
     const res = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/images`);
     if (res.ok) {
       const files = await res.json();
-      const imgs = files.filter(f => /\.(jpe?g|png|webp)$/i.test(f.name));
-      if (imgs.length > 0) {
-        const pick = imgs[Math.floor(Math.random() * imgs.length)];
-        const url = `${LOCAL_IMAGES_BASE}/${encodeURIComponent(pick.name)}`;
-        log(`  ✓ しずく画像を使用: ${pick.name}（${imgs.length}枚中からランダム選択）`, 'ok');
-        return { imageUrl: url };
-      }
+      imgs = files.filter(f => /\.(jpe?g|png|webp)$/i.test(f.name));
     }
-  } catch(e) { /* フォールバックへ */ }
+  } catch(e) { /* images/ なし */ }
 
-  // images/ が空 or 取得失敗 → FLUXで生成
-  log('  FLUX で lo-fi 画像生成中...');
-  const prompt = IMG_PROMPTS[Math.floor(Math.random()*IMG_PROMPTS.length)];
-  const replicateCfg = getCfg();
-  const url = await replicateRun(replicateCfg.replicate, {
-    version: 'c846a69991daf4c0e5d016514849d14ee5b2e6846ce6b9d6f21369e564cfe51e',
-    input: { prompt, width: 1920, height: 1080, num_outputs: 1, aspect_ratio: '16:9' }
-  });
-  log('  ✓ FLUX画像生成完了', 'ok');
-  return { imageUrl: url };
+  // ── flux モード: 常にFLUX schnellでテキスト生成 ────────
+  if (mode === 'flux' || imgs.length === 0) {
+    if (imgs.length === 0 && mode !== 'flux') log('  images/ が空のため FLUX で生成します');
+    log('  🎨 FLUX schnell で新しいしずく画像を生成中...');
+    const prompt = IMG_PROMPTS[Math.floor(Math.random() * IMG_PROMPTS.length)];
+    const url = await replicateRun(cfg.replicate, {
+      version: 'c846a69991daf4c0e5d016514849d14ee5b2e6846ce6b9d6f21369e564cfe51e',
+      input: { prompt, width: 1920, height: 1080, num_outputs: 1, aspect_ratio: '16:9' }
+    });
+    log('  ✓ FLUX生成完了', 'ok');
+    return { imageUrl: url };
+  }
+
+  // 前回と同じ画像を使わないスマートローテーション
+  const lastUsed = localStorage.getItem('lastUsedImage') || '';
+  const candidates = imgs.length > 1 ? imgs.filter(i => i.name !== lastUsed) : imgs;
+  const pick = candidates[Math.floor(Math.random() * candidates.length)];
+  localStorage.setItem('lastUsedImage', pick.name);
+  const refUrl = `${LOCAL_IMAGES_BASE}/${encodeURIComponent(pick.name)}`;
+
+  // ── direct モード: アップロード画像をそのまま使用 ────────
+  if (mode === 'direct') {
+    log(`  ✓ しずく画像を使用: ${pick.name}（${imgs.length}枚ローテーション）`, 'ok');
+    return { imageUrl: refUrl };
+  }
+
+  // ── variation モード（デフォルト）: FLUX dev img2img ────
+  // 画像名からシーンに合うプロンプトを選択
+  const name = pick.name.toLowerCase();
+  let prompt = IMG_PROMPTS[0];
+  if      (name.includes('rain') || name.includes('window'))    prompt = IMG_PROMPTS[1];
+  else if (name.includes('sleep') || name.includes('nap'))      prompt = IMG_PROMPTS[2];
+  else if (name.includes('cafe') || name.includes('coffee'))    prompt = IMG_PROMPTS[3];
+  else if (name.includes('night') || name.includes('view') || name.includes('city')) prompt = IMG_PROMPTS[4];
+  else if (name.includes('book') || name.includes('read'))      prompt = IMG_PROMPTS[5];
+  else if (name.includes('walk') || name.includes('street'))    prompt = IMG_PROMPTS[6];
+  // prompt_strength: 高い=より自由な変化 / 低い=元画像に近い (0.65〜0.80が適切)
+  const strength = 0.68 + Math.random() * 0.12;  // 0.68〜0.80 でランダムに変化幅を調整
+
+  log(`  🎨 ${pick.name} を参照 → FLUX dev でバリエーション生成中... (変化度: ${(strength*100).toFixed(0)}%)`);
+  try {
+    const url = await replicateRunModel(cfg.replicate, 'black-forest-labs/flux-dev', {
+      prompt,
+      image: refUrl,
+      prompt_strength: strength,
+      aspect_ratio: '16:9',
+      output_format: 'jpg',
+      output_quality: 90,
+      num_inference_steps: 28,
+    });
+    log(`  ✓ バリエーション生成完了`, 'ok');
+    return { imageUrl: url };
+  } catch(e) {
+    // FLUX dev 失敗時はdirectにフォールバック
+    log(`  ⚠ FLUX dev エラー → 参照画像を直接使用 (${e.message})`, 'warn');
+    return { imageUrl: refUrl };
+  }
 }
 
 // ── STEP 4: タイトル生成（Canvas + ランダムフォント） ──
@@ -1522,15 +1577,26 @@ async function _unused_stepUpload({ videoUrl }) {
 }
 
 // ── Replicate API ヘルパー ───────────────────────────
+const REPLICATE_PROXY = 'https://lofi-replicate-proxy.lofi-studio-imu.workers.dev';
+
 async function replicateRun(token, body) {
+  return _replicateExec(token, `${REPLICATE_PROXY}/v1/predictions`, body);
+}
+
+// FLUX dev img2img 用（モデルエンドポイント）
+async function replicateRunModel(token, modelPath, input) {
+  return _replicateExec(token,
+    `${REPLICATE_PROXY}/v1/models/${modelPath}/predictions`,
+    { input }
+  );
+}
+
+async function _replicateExec(token, endpoint, body) {
   let pred;
   for (let attempt = 0; attempt < 5; attempt++) {
-    const res = await fetch('https://lofi-replicate-proxy.lofi-studio-imu.workers.dev/v1/predictions', {
+    const res = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        Authorization: `Token ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { Authorization: `Token ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
     pred = await res.json();
@@ -1546,14 +1612,12 @@ async function replicateRun(token, body) {
   const id = pred && pred.id;
   if (!id) throw new Error('Replicate prediction failed after retries: ' + JSON.stringify(pred));
 
-  for (let i=0; i<120; i++) {
+  for (let i = 0; i < 120; i++) {
     await sleep(5000);
-    const poll = await fetch(`https://lofi-replicate-proxy.lofi-studio-imu.workers.dev/v1/predictions/${id}`, {
+    const poll = await fetch(`${REPLICATE_PROXY}/v1/predictions/${id}`, {
       headers: { Authorization: `Token ${token}` },
     }).then(r => r.json());
-    if (poll.status === 'succeeded') {
-      return Array.isArray(poll.output) ? poll.output[0] : poll.output;
-    }
+    if (poll.status === 'succeeded') return Array.isArray(poll.output) ? poll.output[0] : poll.output;
     if (poll.status === 'failed') throw new Error('Replicate failed: ' + poll.error);
   }
   throw new Error('Replicate timeout');
@@ -1732,6 +1796,7 @@ function getCfg() {
     duration:   document.getElementById('cfgDuration').value,
     privacy:    document.getElementById('cfgPrivacy').value,
     schedTime:  document.getElementById('cfgSchedTime').value,
+    imgMode:    document.getElementById('cfgImgMode').value,
   };
 }
 
@@ -1739,6 +1804,16 @@ function saveCfg() {
   localStorage.setItem('lofi_cfg', JSON.stringify(getCfg()));
   log('設定を保存しました', 'ok');
   alert('設定を保存しました！');
+}
+
+const IMG_MODE_DESC = {
+  variation: '🎨 アップロード画像をスタイル参照にして、毎回異なるしずくシーンをFLUX devで自動生成します。同じ雰囲気・違う構図。※ FLUX schnellより約10倍のコストがかかります（約$0.025/枚）',
+  direct:    '🔄 アップロードした画像を連続して繰り返さないようローテーションします。シンプルで低コスト。',
+  flux:      '✨ アップロード画像を使わず、詳細なしずくプロンプトでFLUX schnellが毎回新しい画像を生成します。約$0.003/枚。',
+};
+function updateImgModeDesc() {
+  const mode = document.getElementById('cfgImgMode').value;
+  document.getElementById('imgModeDesc').textContent = IMG_MODE_DESC[mode] || '';
 }
 
 function applyCfg() {
@@ -1751,6 +1826,8 @@ function applyCfg() {
   if (c.duration)   document.getElementById('cfgDuration').value   = c.duration;
   if (c.privacy)    document.getElementById('cfgPrivacy').value    = c.privacy;
   if (c.schedTime)  document.getElementById('cfgSchedTime').value  = c.schedTime;
+  if (c.imgMode)    document.getElementById('cfgImgMode').value    = c.imgMode;
+  updateImgModeDesc();
   if (c.replicate && !c.replicate.startsWith('r8_xxxx')) setStatus('ok','設定済み');
 }
 
