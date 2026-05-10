@@ -77,7 +77,7 @@ jobs:
         run: |
           TITLE_DUR=${{ inputs.title_duration }}
           TOTAL_DUR=${{ inputs.duration }}
-          MAIN_DUR=$((TOTAL_DUR - TITLE_DUR))
+          MAIN_DUR=$((TOTAL_DUR - TITLE_DUR + 5))
           LOOPS=$(( (MAIN_DUR / 60) + 2 ))
           i=0
           while [ $i -lt $LOOPS ]; do
@@ -97,8 +97,8 @@ jobs:
             -i audio.mp3 \
             -filter_complex \
               "[0:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24[v0];\
-               [1:v]setsar=1[v1];\
-               [v0][v1]concat=n=2:v=1:a=0[vout];\
+               [1:v]setsar=1,fps=24[v1];\
+               [v0][v1]xfade=transition=dissolve:duration=3:offset=$((TITLE_DUR - 3))[vout];\
                [2:a]aloop=loop=-1:size=2e9,atrim=duration=$TOTAL_DUR,afade=t=out:st=$FADE_START:d=15[aout]" \
             -map "[vout]" -map "[aout]" \
             -c:v libx264 -preset ultrafast -tune stillimage -pix_fmt yuv420p -crf 35 -maxrate 1500k -bufsize 3M \
