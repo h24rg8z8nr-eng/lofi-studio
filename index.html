@@ -1703,35 +1703,30 @@ async function generateTitleCard() {
       img.src = bgImageUrl;
     });
 
-    // 左側に暗いグラデーションオーバーレイ（テキスト読みやすさ確保）
-    const leftOverlay = ctx.createLinearGradient(0, 0, W * 0.72, 0);
-    leftOverlay.addColorStop(0,   'rgba(10, 8, 20, 0.88)');
-    leftOverlay.addColorStop(0.55,'rgba(10, 8, 20, 0.60)');
-    leftOverlay.addColorStop(1,   'rgba(10, 8, 20, 0.00)');
-    ctx.fillStyle = leftOverlay;
+    // 全面に半透明の暗いオーバーレイ（テキスト読みやすさ確保）
+    ctx.fillStyle = 'rgba(10, 8, 20, 0.55)';
     ctx.fillRect(0, 0, W, H);
 
-    // 月・星の装飾（左上）
-    ctx.fillStyle = '#D98C5F';
+    // 月の装飾（左上）
     ctx.globalAlpha = 0.55;
     ctx.font = '48px serif';
     ctx.textAlign = 'left';
     ctx.fillText('🌙', 80, 90);
     ctx.globalAlpha = 1;
 
-    // 装飾ライン（左ゾーン）
+    // 装飾ライン（中央揃え）
     ctx.strokeStyle = '#D98C5F';
     ctx.globalAlpha = 0.45;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(W*0.07, H*0.33); ctx.lineTo(W*0.56, H*0.33);
-    ctx.moveTo(W*0.07, H*0.67); ctx.lineTo(W*0.56, H*0.67);
+    ctx.moveTo(W*0.15, H*0.33); ctx.lineTo(W*0.85, H*0.33);
+    ctx.moveTo(W*0.15, H*0.67); ctx.lineTo(W*0.85, H*0.67);
     ctx.stroke();
     ctx.globalAlpha = 1;
 
-    // タイトル文字（左寄せ、画面幅の48%以内）
+    // タイトル文字（中央揃え）
     let fontSize = font.size;
-    const maxTextWidth = W * 0.46;
+    const maxTextWidth = W * 0.78;
     ctx.font = `${font.weight} ${fontSize}px "${font.family}", sans-serif`;
     while (ctx.measureText(TITLE_TEXT).width > maxTextWidth && fontSize > 56) {
       fontSize -= 4;
@@ -1743,20 +1738,14 @@ async function generateTitleCard() {
     ctx.shadowBlur = 32;
     ctx.shadowOffsetY = 6;
     ctx.fillStyle = '#FFE4C0';
-    ctx.fillText(TITLE_TEXT, W * 0.29, H / 2);
+    ctx.fillText(TITLE_TEXT, W / 2, H / 2);
 
-    // サブテキスト
+    // サブテキスト（中央揃え）
     ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
     ctx.font = `400 24px "Space Mono", monospace`;
     ctx.fillStyle = '#D98C5F';
     ctx.globalAlpha = 0.85;
-    ctx.fillText('☕  RELAX  •  STUDY  •  CHILL  ☕', W * 0.29, H * 0.77);
-
-    // キャラクタークレジット（右下・小）
-    ctx.font = '400 16px "Space Mono", monospace';
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    ctx.textAlign = 'right';
-    ctx.fillText('Shizuku Tsukishiro  🌙', W - 36, H - 28);
+    ctx.fillText('☕  RELAX  •  STUDY  •  CHILL  ☕', W / 2, H * 0.77);
     ctx.globalAlpha = 1;
 
   } else {
