@@ -424,6 +424,23 @@ body::before{
     </div>
 
     <div class="card">
+      <div class="ct">画像管理（しずく シーン）</div>
+      <div class="tsub" style="margin-bottom:12px">しずくのシーン画像（JPEG/PNG）をアップロードしてください。動画生成時にFLUXの代わりにランダム選択されます。</div>
+      <div class="field">
+        <label class="fl">画像ファイルを選択</label>
+        <input type="file" id="imageFiles" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" multiple style="display:none" onchange="onImageFilesSelected()">
+        <button class="btn btn-sec" style="margin:0;width:100%" onclick="document.getElementById('imageFiles').click()">ファイルを選択</button>
+      </div>
+      <div id="imageUploadList" style="margin-top:8px;font-size:11px;color:var(--sub)"></div>
+      <button class="btn btn-run" style="margin-top:10px" id="uploadImagesBtn" onclick="uploadSelectedImages()" disabled>GitHubにアップロード</button>
+      <div style="margin-top:14px;border-top:1px solid var(--bd);padding-top:12px">
+        <div style="font-size:11px;color:var(--sub);margin-bottom:6px">現在の画像 <span id="imageCountBadge">—</span></div>
+        <div id="imageList" style="font-size:11px;color:var(--tx)">読み込み中...</div>
+        <button class="btn btn-sec" style="margin-top:8px;padding:6px 12px;width:auto;font-size:10px" onclick="loadImageList()">画像リストを更新</button>
+      </div>
+    </div>
+
+    <div class="card">
       <div class="ct">スケジュール</div>
       <div class="trow">
         <div>
@@ -663,7 +680,9 @@ const TITLE_PALETTES = [
 let lastTitleDataUrl = null;
 let lastTitleFont = null;
 
-const LOCAL_TRACKS_BASE = 'https://h24rg8z8nr-eng.github.io/lofi-studio/tracks';
+const LOCAL_TRACKS_BASE  = 'https://h24rg8z8nr-eng.github.io/lofi-studio/tracks';
+const LOCAL_IMAGES_BASE  = 'https://h24rg8z8nr-eng.github.io/lofi-studio/images';
+let selectedImageFiles = [];
 const AI_DISCLOSURE = '\n\n🎵 Music generated with Suno AI (Pro Plan)\n🎨 Visuals generated with AI\n\nThis content contains AI-generated music and imagery.';
 
 // ── 状態 ────────────────────────────────────────────
@@ -689,7 +708,7 @@ window.onload = () => {
 function sw(i) {
   document.querySelectorAll('.page').forEach((p,j) => p.classList.toggle('on', i===j));
   document.querySelectorAll('.tab').forEach((t,j) => t.classList.toggle('on', i===j));
-  if (i === 1) loadTrackList();
+  if (i === 1) { loadTrackList(); loadImageList(); }
 }
 
 // ── ステップ描画 ─────────────────────────────────────
@@ -904,6 +923,71 @@ async function loadTrackList() {
   }
 }
 
+// ── 画像管理 ─────────────────────────────────────────
+function onImageFilesSelected() {
+  const input = document.getElementById('imageFiles');
+  selectedImageFiles = Array.from(input.files);
+  const listEl = document.getElementById('imageUploadList');
+  const btn = document.getElementById('uploadImagesBtn');
+  listEl.innerHTML = selectedImageFiles.map(f => `🖼 ${f.name} (${(f.size/1024/1024).toFixed(1)}MB)`).join('<br>');
+  btn.disabled = selectedImageFiles.length === 0;
+}
+
+async function uploadSelectedImages() {
+  const cfg = getCfg();
+  if (!cfg.ghPat) { alert('GitHub PATを設定してください'); return; }
+  if (selectedImageFiles.length === 0) return;
+  const btn = document.getElementById('uploadImagesBtn');
+  btn.disabled = true;
+  btn.textContent = 'アップロード中...';
+  try {
+    for (const file of selectedImageFiles) {
+      const buf = await file.arrayBuffer();
+      const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+      const checkRes = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/images/${encodeURIComponent(file.name)}`);
+      const sha = checkRes.ok ? (await checkRes.json()).sha : undefined;
+      const uploadRes = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/images/${encodeURIComponent(file.name)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ message: `upload image ${file.name}`, content: b64, branch: 'main', ...(sha ? { sha } : {}) }),
+      });
+      if (!uploadRes.ok) {
+        const err = await uploadRes.text();
+        throw new Error(`${file.name} のアップロード失敗: ${uploadRes.status}`);
+      }
+    }
+    btn.textContent = '完了！';
+    alert(`${selectedImageFiles.length}枚をアップロードしました！次回の動画からしずくの画像が使われます🌙`);
+    selectedImageFiles = [];
+    document.getElementById('imageFiles').value = '';
+    document.getElementById('imageUploadList').innerHTML = '';
+    await loadImageList();
+  } catch(e) {
+    alert('エラー: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'GitHubにアップロード';
+  }
+}
+
+async function loadImageList() {
+  const cfg = getCfg();
+  const listEl = document.getElementById('imageList');
+  const badge = document.getElementById('imageCountBadge');
+  if (!cfg.ghPat) { listEl.textContent = 'GitHub PATを設定してください'; return; }
+  try {
+    const res = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/images`);
+    if (res.status === 404) { listEl.textContent = 'images/フォルダがまだありません'; badge.textContent = '0枚'; return; }
+    const files = await res.json();
+    const imgs = files.filter(f => /\.(jpe?g|png|webp)$/i.test(f.name));
+    badge.textContent = `${imgs.length}枚`;
+    listEl.innerHTML = imgs.length === 0
+      ? '<span style="color:var(--sub)">まだ画像がありません（FLUX生成で代替）</span>'
+      : imgs.map(f => `<div style="padding:3px 0;border-bottom:1px solid var(--bd)">🖼 ${f.name}</div>`).join('');
+  } catch(e) {
+    listEl.textContent = 'エラー: ' + e.message;
+  }
+}
+
 // ── STEP 2: 楽曲URL渡し（workflow内でtracks/フォルダから全曲結合）──
 async function stepAudio({ audioUrls }) {
   // ワークフローがcheckout済みのtracks/フォルダを直接ffmpegで結合するため、
@@ -914,8 +998,24 @@ async function stepAudio({ audioUrls }) {
   return { longAudioUrl: pick };
 }
 
-// ── STEP 3: 画像生成（Replicate FLUX） ───────────────
+// ── STEP 3: 画像選択 or FLUX生成 ─────────────────────
 async function stepImage(cfg) {
+  // images/ フォルダに画像があれば優先して使用（コスト節約 + しずく世界観統一）
+  try {
+    const res = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/images`);
+    if (res.ok) {
+      const files = await res.json();
+      const imgs = files.filter(f => /\.(jpe?g|png|webp)$/i.test(f.name));
+      if (imgs.length > 0) {
+        const pick = imgs[Math.floor(Math.random() * imgs.length)];
+        const url = `${LOCAL_IMAGES_BASE}/${encodeURIComponent(pick.name)}`;
+        log(`  ✓ しずく画像を使用: ${pick.name}（${imgs.length}枚中からランダム選択）`, 'ok');
+        return { imageUrl: url };
+      }
+    }
+  } catch(e) { /* フォールバックへ */ }
+
+  // images/ が空 or 取得失敗 → FLUXで生成
   log('  FLUX で lo-fi 画像生成中...');
   const prompt = IMG_PROMPTS[Math.floor(Math.random()*IMG_PROMPTS.length)];
   const replicateCfg = getCfg();
@@ -923,7 +1023,7 @@ async function stepImage(cfg) {
     version: 'c846a69991daf4c0e5d016514849d14ee5b2e6846ce6b9d6f21369e564cfe51e',
     input: { prompt, width: 1920, height: 1080, num_outputs: 1, aspect_ratio: '16:9' }
   });
-  log('  ✓ 画像生成完了', 'ok');
+  log('  ✓ FLUX画像生成完了', 'ok');
   return { imageUrl: url };
 }
 
