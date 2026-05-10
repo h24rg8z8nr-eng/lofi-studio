@@ -1020,7 +1020,7 @@ async function uploadSelectedImages() {
   try {
     for (const file of selectedImageFiles) {
       const buf = await file.arrayBuffer();
-      const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+      const b64 = bufferToBase64(buf);
       const checkRes = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/images/${encodeURIComponent(file.name)}`);
       const sha = checkRes.ok ? (await checkRes.json()).sha : undefined;
       const uploadRes = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/images/${encodeURIComponent(file.name)}`, {
@@ -1091,7 +1091,7 @@ async function uploadSelectedAnims() {
         continue;
       }
       const buf = await file.arrayBuffer();
-      const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+      const b64 = bufferToBase64(buf);
       const checkRes = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/animations/${encodeURIComponent(file.name)}`);
       const sha = checkRes.ok ? (await checkRes.json()).sha : undefined;
       const uploadRes = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/animations/${encodeURIComponent(file.name)}`, {
@@ -1233,6 +1233,17 @@ async function stepTitle() {
 // ── STEP 5: 動画生成（GitHub Actions + ffmpeg） ───────
 const GH_OWNER = 'h24rg8z8nr-eng';
 const GH_REPO  = 'lofi-studio';
+
+// 大きなファイルをチャンク分割してBase64変換（スタックオーバーフロー防止）
+function bufferToBase64(buf) {
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  const chunk = 8192;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
 
 async function ghApi(pat, path, opts = {}) {
   const res = await fetch(`https://api.github.com${path}`, {
