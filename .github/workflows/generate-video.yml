@@ -65,7 +65,20 @@ jobs:
           fi
           cp "${{ inputs.title_path }}" title.png
 
+      - name: Check for animation loop
+        run: |
+          if ls animations/*.mp4 2>/dev/null | grep -q .; then
+            ANIM=$(ls animations/*.mp4 | shuf -n 1)
+            echo "ANIM_FILE=$ANIM" >> $GITHUB_ENV
+            echo "USE_ANIM=true" >> $GITHUB_ENV
+            echo "Using animation: $ANIM"
+          else
+            echo "USE_ANIM=false" >> $GITHUB_ENV
+            echo "No animation found, using Ken Burns effect"
+          fi
+
       - name: Create Ken Burns loop (60s zoom in/out)
+        if: env.USE_ANIM == 'false'
         run: |
           ffmpeg -loop 1 -i main.png \
             -vf "scale=3840:2160:force_original_aspect_ratio=increase,crop=3840:2160,\
@@ -74,6 +87,7 @@ jobs:
             kb_loop.mp4
 
       - name: Extend Ken Burns loop to full video duration
+        if: env.USE_ANIM == 'false'
         run: |
           TITLE_DUR=${{ inputs.title_duration }}
           TOTAL_DUR=${{ inputs.duration }}
@@ -86,26 +100,47 @@ jobs:
           done
           ffmpeg -f concat -safe 0 -i loop_list.txt -t $MAIN_DUR -c copy main_video.mp4
 
-      - name: Compose final video (title + Ken Burns loop + audio with fade out)
+      - name: Compose final video (title + background + audio with fade out)
         run: |
           TITLE_DUR=${{ inputs.title_duration }}
           TOTAL_DUR=${{ inputs.duration }}
           FADE_START=$((TOTAL_DUR - 15))
-          ffmpeg -y \
-            -loop 1 -t $TITLE_DUR -i title.png \
-            -i main_video.mp4 \
-            -i audio.mp3 \
-            -filter_complex \
-              "[0:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24[v0];\
-               [1:v]setsar=1,fps=24[v1];\
-               [v0][v1]xfade=transition=dissolve:duration=3:offset=$((TITLE_DUR - 3))[vout];\
-               [2:a]aloop=loop=-1:size=2e9,atrim=duration=$TOTAL_DUR,afade=t=out:st=$FADE_START:d=15[aout]" \
-            -map "[vout]" -map "[aout]" \
-            -c:v libx264 -preset ultrafast -tune stillimage -pix_fmt yuv420p -crf 35 -maxrate 1500k -bufsize 3M \
-            -c:a aac -b:a 128k \
-            -movflags +faststart \
-            -t $TOTAL_DUR \
-            output.mp4
+          MAIN_DUR=$((TOTAL_DUR - TITLE_DUR + 5))
+          if [ "$USE_ANIM" = "true" ]; then
+            echo "▶ アニメーションループを使用: $ANIM_FILE"
+            ffmpeg -y \
+              -loop 1 -t $TITLE_DUR -i title.png \
+              -stream_loop -1 -i "$ANIM_FILE" \
+              -i audio.mp3 \
+              -filter_complex \
+                "[0:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24[v0];\
+                 [1:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24,trim=duration=$MAIN_DUR[v1];\
+                 [v0][v1]xfade=transition=dissolve:duration=3:offset=$((TITLE_DUR - 3))[vout];\
+                 [2:a]aloop=loop=-1:size=2e9,atrim=duration=$TOTAL_DUR,afade=t=out:st=$FADE_START:d=15[aout]" \
+              -map "[vout]" -map "[aout]" \
+              -c:v libx264 -preset ultrafast -pix_fmt yuv420p -crf 35 -maxrate 1500k -bufsize 3M \
+              -c:a aac -b:a 128k \
+              -movflags +faststart \
+              -t $TOTAL_DUR \
+              output.mp4
+          else
+            echo "▶ Ken Burnsエフェクトを使用"
+            ffmpeg -y \
+              -loop 1 -t $TITLE_DUR -i title.png \
+              -i main_video.mp4 \
+              -i audio.mp3 \
+              -filter_complex \
+                "[0:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24[v0];\
+                 [1:v]setsar=1,fps=24[v1];\
+                 [v0][v1]xfade=transition=dissolve:duration=3:offset=$((TITLE_DUR - 3))[vout];\
+                 [2:a]aloop=loop=-1:size=2e9,atrim=duration=$TOTAL_DUR,afade=t=out:st=$FADE_START:d=15[aout]" \
+              -map "[vout]" -map "[aout]" \
+              -c:v libx264 -preset ultrafast -tune stillimage -pix_fmt yuv420p -crf 35 -maxrate 1500k -bufsize 3M \
+              -c:a aac -b:a 128k \
+              -movflags +faststart \
+              -t $TOTAL_DUR \
+              output.mp4
+          fi
 
       - name: Show output info
         run: |
