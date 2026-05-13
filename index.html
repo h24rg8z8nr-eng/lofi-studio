@@ -980,6 +980,32 @@ async function uploadSelectedTracks() {
   }
 }
 
+// ── GitHubファイル削除共通 ──────────────────────────────
+const _ghFilesCache = {};
+
+async function deleteGhFile(folder, index) {
+  const f = _ghFilesCache[folder]?.[index];
+  if (!f) return;
+  if (!confirm(`「${f.name}」を削除しますか？\nこの操作は取り消せません。`)) return;
+  const cfg = getCfg();
+  const res = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/${f.path}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ message: `delete ${f.name}`, sha: f.sha, branch: 'main' }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    alert('削除失敗: ' + res.status + '\n' + err);
+    return;
+  }
+  if (folder === 'tracks') await loadTrackList();
+  else if (folder === 'images') await loadImageList();
+  else if (folder === 'animations') await loadAnimList();
+}
+
+function _deleteBtn(folder, index) {
+  return `<button onclick="deleteGhFile('${folder}',${index})" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:15px;line-height:1;padding:0 4px;flex-shrink:0" title="GitHubから削除">✕</button>`;
+}
+
 async function loadTrackList() {
   const cfg = getCfg();
   const listEl = document.getElementById('trackList');
@@ -991,10 +1017,11 @@ async function loadTrackList() {
     if (res.status === 404) { listEl.textContent = 'tracks/フォルダがまだありません'; badge.textContent = '0曲'; return; }
     const files = await res.json();
     const mp3s = files.filter(f => f.name.toLowerCase().endsWith('.mp3')).sort((a,b) => a.name.localeCompare(b.name));
+    _ghFilesCache.tracks = mp3s;
     badge.textContent = `${mp3s.length}曲`;
     listEl.innerHTML = mp3s.length === 0
       ? '<span style="color:var(--sub)">まだ楽曲がありません</span>'
-      : mp3s.map(f => `<div style="padding:3px 0;border-bottom:1px solid var(--bd)">🎵 ${f.name}</div>`).join('');
+      : mp3s.map((f, i) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--bd)"><span>🎵 ${f.name}</span>${_deleteBtn('tracks',i)}</div>`).join('');
   } catch(e) {
     listEl.textContent = 'エラー: ' + e.message;
   }
@@ -1080,10 +1107,11 @@ async function loadImageList() {
     if (res.status === 404) { listEl.textContent = 'images/フォルダがまだありません'; badge.textContent = '0枚'; return; }
     const files = await res.json();
     const imgs = files.filter(f => /\.(jpe?g|png|webp)$/i.test(f.name));
+    _ghFilesCache.images = imgs;
     badge.textContent = `${imgs.length}枚`;
     listEl.innerHTML = imgs.length === 0
       ? '<span style="color:var(--sub)">まだ画像がありません（FLUX生成で代替）</span>'
-      : imgs.map(f => `<div style="padding:3px 0;border-bottom:1px solid var(--bd)">🖼 ${f.name}</div>`).join('');
+      : imgs.map((f, i) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--bd)"><span>🖼 ${f.name}</span>${_deleteBtn('images',i)}</div>`).join('');
   } catch(e) {
     listEl.textContent = 'エラー: ' + e.message;
   }
@@ -1148,10 +1176,11 @@ async function loadAnimList() {
     if (res.status === 404) { listEl.textContent = 'animations/フォルダがまだありません'; badge.textContent = '0件'; return; }
     const files = await res.json();
     const vids = files.filter(f => /\.mp4$/i.test(f.name));
+    _ghFilesCache.animations = vids;
     badge.textContent = `${vids.length}件`;
     listEl.innerHTML = vids.length === 0
       ? '<span style="color:var(--sub)">まだアニメーションがありません</span>'
-      : vids.map(f => `<div style="padding:3px 0;border-bottom:1px solid var(--bd)">🎬 ${f.name}</div>`).join('');
+      : vids.map((f, i) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--bd)"><span>🎬 ${f.name}</span>${_deleteBtn('animations',i)}</div>`).join('');
   } catch(e) {
     listEl.textContent = 'エラー: ' + e.message;
   }
