@@ -988,7 +988,8 @@ async function deleteGhFile(folder, index) {
   if (!f) return;
   if (!confirm(`「${f.name}」を削除しますか？\nこの操作は取り消せません。`)) return;
   const cfg = getCfg();
-  const res = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/${f.path}`, {
+  const encodedPath = f.path.split('/').map(encodeURIComponent).join('/');
+  const res = await ghApi(cfg.ghPat, `/repos/${GH_OWNER}/${GH_REPO}/contents/${encodedPath}`, {
     method: 'DELETE',
     body: JSON.stringify({ message: `delete ${f.name}`, sha: f.sha, branch: 'main' }),
   });
