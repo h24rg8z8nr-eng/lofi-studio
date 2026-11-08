@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PD Collage</title>
+<meta name="description" content="パブリックドメイン画像を自動収集し、A4横・両面のコラージュを自動生成するアプリ">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --bg:#f4f1ea; --panel:#fffdf8; --bd:#e2dccf; --tx:#2b2620; --sub:#7a7062;
+  --ac:#b5482e; --ac2:#2f5d62; --ok:#3d7a3a; --err:#b23a3a; --r:12px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15130f; --panel:#1f1c17; --bd:#3a342b; --tx:#ece6da; --sub:#a39885;
+    --ac:#e0755a; --ac2:#7fb5ba; --ok:#7cc174; --err:#e57a7a;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15130f; --panel:#1f1c17; --bd:#3a342b; --tx:#ece6da; --sub:#a39885;
+  --ac:#e0755a; --ac2:#7fb5ba; --ok:#7cc174; --err:#e57a7a;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--tx);font-family:"Hiragino Sans","Noto Sans JP","Yu Gothic",system-ui,sans-serif;line-height:1.6;min-height:100vh}
+header{padding:20px 16px 8px;max-width:1280px;margin:0 auto}
+h1{font-size:22px;letter-spacing:.04em}
+h1 small{font-size:12px;color:var(--sub);font-weight:400;margin-left:8px}
+.lead{color:var(--sub);font-size:13px;margin-top:4px}
+main{max-width:1280px;margin:0 auto;padding:8px 16px 40px;display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start}
+@media (max-width:860px){main{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--bd);border-radius:var(--r);padding:16px}
+.panel h2{font-size:13px;color:var(--sub);font-weight:600;margin-bottom:10px;letter-spacing:.05em}
+label.f{display:block;font-size:12px;color:var(--sub);margin:12px 0 4px}
+select,input[type=text],input[type=number]{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font-size:14px}
+.row{display:flex;gap:8px}
+.row>*{flex:1}
+.chk{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px}
+.chk label{display:flex;align-items:center;gap:5px;cursor:pointer}
+input[type=range]{width:100%}
+.btn{display:block;width:100%;padding:12px;border:none;border-radius:10px;background:var(--ac);color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-top:16px}
+.btn:disabled{opacity:.5;cursor:wait}
+.btn.sec{background:transparent;color:var(--tx);border:1px solid var(--bd);font-weight:600;font-size:13px;padding:10px;margin-top:8px}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btns .btn{margin-top:8px}
+#log{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--sub);max-height:160px;overflow:auto;margin-top:12px;white-space:pre-wrap;word-break:break-all}
+#log .e{color:var(--err)} #log .o{color:var(--ok)}
+.bar{height:4px;background:var(--bd);border-radius:2px;margin-top:10px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--ac2);transition:width .2s}
+.pages{display:grid;gap:16px}
+.page{background:var(--panel);border:1px solid var(--bd);border-radius:var(--r);padding:12px}
+.page h3{font-size:13px;color:var(--sub);font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between}
+.page canvas{width:100%;height:auto;aspect-ratio:297/210;display:block;background:var(--bg);border-radius:4px;box-shadow:0 2px 10px rgba(0,0,0,.15)}
+.empty{aspect-ratio:297/210;display:flex;align-items:center;justify-content:center;color:var(--sub);font-size:13px;border:1px dashed var(--bd);border-radius:4px;text-align:center;padding:16px}
+details{margin-top:4px}
+summary{cursor:pointer;font-size:13px;color:var(--sub)}
+#credits{font-size:11px;color:var(--sub);margin-top:8px;max-height:260px;overflow:auto}
+#credits li{margin-left:18px}
+#credits a{color:var(--ac2)}
+.note{font-size:11px;color:var(--sub);margin-top:10px}
+</style>
+</head>
+<body>
+<header>
+  <h1>PD Collage<small>パブリックドメイン自動コラージュ</small></h1>
+  <p class="lead">美術館などが公開しているパブリックドメイン／CC0の画像を自動で集め、A4横・両面（表・裏）のコラージュを自動で貼り付けます。</p>
+</header>
+<main>
+  <section class="panel" aria-label="設定">
+    <h2>設定</h2>
+    <label class="f" for="theme">テーマ</label>
+    <select id="theme">
+      <option value="__random">おまかせ（ランダム）</option>
+      <option value="flower botanical">花・植物</option>
+      <option value="bird">鳥</option>
+      <option value="sea ship">海・船</option>
+      <option value="Japanese woodblock print">浮世絵・木版画</option>
+      <option value="map">古地図</option>
+      <option value="animal">動物</option>
+      <option value="butterfly insect">蝶・昆虫</option>
+      <option value="astronomy moon star">天体・宇宙</option>
+      <option value="architecture building">建築</option>
+      <option value="landscape painting">風景画</option>
+      <option value="portrait">肖像画</option>
+      <option value="__custom">自由入力（英語推奨）…</option>
+    </select>
+    <input id="custom" type="text" placeholder="例: cat, mountain, kimono" style="margin-top:6px;display:none">
+
+    <label class="f">収集元（パブリックドメイン／CC0のみ取得）</label>
+    <div class="chk">
+      <label><input type="checkbox" id="srcAic" checked>シカゴ美術館</label>
+      <label><input type="checkbox" id="srcCma" checked>クリーブランド美術館</label>
+      <label><input type="checkbox" id="srcMet" checked>メトロポリタン美術館</label>
+      <label><input type="checkbox" id="srcWiki" checked>Wikimedia Commons</label>
+    </div>
+
+    <label class="f" for="layout">貼り付けスタイル</label>
+    <select id="layout">
+      <option value="scrap">スクラップブック（写真を貼った風）</option>
+      <option value="mosaic">モザイク（隙間なく敷き詰め）</option>
+      <option value="masonry">メイソンリー（縦列）</option>
+      <option value="mix">表と裏で別スタイル</option>
+    </select>
+
+    <label class="f" for="count">1面あたりの枚数: <b id="countV">14</b>枚</label>
+    <input id="count" type="range" min="4" max="40" value="14">
+
+    <div class="row">
+      <div>
+        <label class="f" for="dpi">解像度</label>
+        <select id="dpi">
+          <option value="150">150dpi（軽量）</option>
+          <option value="300" selected>300dpi（印刷向け）</option>
+        </select>
+      </div>
+      <div>
+        <label class="f" for="margin">余白</label>
+        <select id="margin">
+          <option value="0">なし（フチなし）</option>
+          <option value="5" selected>5mm</option>
+          <option value="10">10mm</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label class="f" for="bg">台紙の色</label>
+        <select id="bg">
+          <option value="#efe6d2">生成り</option>
+          <option value="#ffffff">白</option>
+          <option value="#1c1a17">黒</option>
+          <option value="#2f4f4f">深緑</option>
+          <option value="#c9b28f">クラフト紙</option>
+        </select>
+      </div>
+      <div>
+        <label class="f" for="seed">シード</label>
+        <input id="seed" type="number" min="0" placeholder="空欄でランダム">
+      </div>
+    </div>
+
+    <div class="chk" style="margin-top:12px">
+      <label><input type="checkbox" id="credit">裏面の下端に出典を小さく印字</label>
+    </div>
+
+    <button class="btn" id="go">▶ 自動で収集して作成</button>
+    <div class="btns">
+      <button class="btn sec" id="reshuffle" disabled>↻ 配置だけ変える</button>
+      <button class="btn sec" id="pdf" disabled>⇩ PDF（両面）</button>
+      <button class="btn sec" id="png1" disabled>⇩ 表面 PNG</button>
+      <button class="btn sec" id="png2" disabled>⇩ 裏面 PNG</button>
+    </div>
+    <div class="bar"><i id="prog"></i></div>
+    <div id="log" aria-live="polite"></div>
+    <p class="note">両面印刷するときは、プリンタ設定で「A4・横・短辺とじ」を選ぶと裏面の天地がそろいます。</p>
+  </section>
+
+  <section class="pages" aria-label="プレビュー">
+    <div class="page">
+      <h3><span>表面（1ページ目）</span><span id="info1"></span></h3>
+      <canvas id="c1" hidden></canvas>
+      <div class="empty" id="e1">「自動で収集して作成」を押すと、ここに表面が表示されます</div>
+    </div>
+    <div class="page">
+      <h3><span>裏面（2ページ目）</span><span id="info2"></span></h3>
+      <canvas id="c2" hidden></canvas>
+      <div class="empty" id="e2">裏面のプレビュー</div>
+    </div>
+    <div class="panel">
+      <details>
+        <summary>使用した画像の出典一覧（<span id="nCred">0</span>点）</summary>
+        <ol id="credits"></ol>
+        <button class="btn sec" id="credTxt" disabled style="width:auto;padding:6px 12px">出典をテキストで保存</button>
+      </details>
+    </div>
+  </section>
+</main>
+
+<script>
+'use strict';
+/* ====== 基本設定 ====== */
+const A4 = { w: 297, h: 210 }; // mm（横）
+const RANDOM_THEMES = ['flower botanical','bird','sea ship','Japanese woodblock print','map','animal',
+  'butterfly insect','astronomy','architecture','landscape','fish','fruit','still life','horse','tree'];
+const $ = id => document.getElementById(id);
+
+/* ====== 乱数（シード付き） ====== */
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+let rnd = Math.random;
+const rr = (a,b) => a + (b-a)*rnd();
+const ri = (a,b) => Math.floor(rr(a,b+1));
+function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
+
+/* ====== ログ ====== */
+function log(msg, cls){ const d=document.createElement('div'); if(cls) d.className=cls; d.textContent=msg; $('log').appendChild(d); $('log').scrollTop=1e9; }
+function prog(p){ $('prog').style.width = Math.round(p*100)+'%'; }
+
+async function getJSON(url, ms=20000){
+  const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), ms);
+  try{ const r = await fetch(url, {signal:ctl.signal}); if(!r.ok) throw new Error('HTTP '+r.status); return await r.json(); }
+  finally{ clearTimeout(t); }
+}
+const stripHtml = s => (s||'').replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim();
+
+/* ====== 収集元ごとの検索 ======
+   各関数は {url, title, artist, date, source, link} の配列を返す（すべてPD/CC0のみ） */
+const SOURCES = {
+  async aic(q, n){
+    const base = 'https://api.artic.edu/api/v1/artworks/search';
+    const qs = p => `${base}?q=${encodeURIComponent(q)}&query[term][is_public_domain]=true&fields=id,title,artist_title,date_display,image_id&limit=${p.limit}&page=${p.page}`;
+    const first = await getJSON(qs({limit:1,page:1}));
+    const total = Math.min(first.pagination?.total || 0, 1000);
+    if(!total) return [];
+    const limit = Math.min(100, Math.max(n, 20));
+    const page = ri(1, Math.max(1, Math.floor(total/limit)));
+    const j = await getJSON(qs({limit, page}));
+    return (j.data||[]).filter(d=>d.image_id).map(d=>({
+      url:`https://www.artic.edu/iiif/2/${d.image_id}/full/1200,/0/default.jpg`,
+      title:d.title, artist:d.artist_title||'', date:d.date_display||'',
+      source:'Art Institute of Chicago (CC0)', link:`https://www.artic.edu/artworks/${d.id}`
+    }));
+  },
+  async cma(q, n){
+    const base = 'https://openaccess-api.clevelandart.org/api/artworks/';
+    const qs = (limit,skip) => `${base}?q=${encodeURIComponent(q)}&cc0=1&has_image=1&limit=${limit}&skip=${skip}`;
+    const first = await getJSON(qs(1,0));
+    const total = Math.min(first.info?.total || 0, 2000);
+    if(!total) return [];
+    const limit = Math.min(100, Math.max(n, 20));
+    const j = await getJSON(qs(limit, ri(0, Math.max(0,total-limit))));
+    return (j.data||[]).filter(d=>d.images?.web?.url).map(d=>({
+      url:d.images.web.url, title:d.title, artist:(d.creators?.[0]?.description||'').replace(/\s*\(.*$/,''),
+      date:d.creation_date||'', source:'Cleveland Museum of Art (CC0)', link:d.url
+    }));
+  },
+  async met(q, n){
+    const s = await getJSON(`https://collectionapi.metmuseum.org/public/collection/v1/search?hasImages=true&q=${encodeURIComponent(q)}`);
+    const ids = shuffle((s.objectIDs||[]).slice(0, 2000)).slice(0, Math.min(60, n*3));
+    const out = [];
+    await pool(ids, 8, async id => {
+      try{
+        const o = await getJSON(`https://collectionapi.metmuseum.org/public/collection/v1/objects/${id}`, 12000);
+        if(o.isPublicDomain && (o.primaryImageSmall||o.primaryImage)) out.push({
+          url:o.primaryImageSmall||o.primaryImage, title:o.title, artist:o.artistDisplayName||'',
+          date:o.objectDate||'', source:'The Metropolitan Museum of Art (Open Access, CC0)', link:o.objectURL
+        });
+      }catch(e){}
+    });
+    return out;
+  },
+  async wiki(q, n){
+    const url = 'https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*'
+      + '&generator=search&gsrnamespace=6&gsrlimit=50'
+      + `&gsroffset=${ri(0,100)}&gsrsearch=${encodeURIComponent(q+' filetype:bitmap')}`
+      + '&prop=imageinfo&iiprop=url|size|extmetadata&iiurlwidth=1200';
+    const j = await getJSON(url);
+    const pages = Object.values(j.query?.pages||{});
+    return pages.map(p=>{
+      const ii = p.imageinfo?.[0]; if(!ii) return null;
+      const m = ii.extmetadata||{};
+      const lic = (m.LicenseShortName?.value||'') + ' ' + (m.License?.value||'');
+      if(!/public domain|^\s*pd|\bpd-|cc0/i.test(lic)) return null;
+      if(!/\.(jpe?g|png|tiff?)$/i.test(ii.url)) return null;
+      return { url: ii.thumburl||ii.url, title: stripHtml(m.ObjectName?.value) || p.title.replace(/^File:/,'').replace(/\.\w+$/,''),
+        artist: stripHtml(m.Artist?.value).slice(0,80), date: stripHtml(m.DateTimeOriginal?.value).slice(0,40),
+        source:`Wikimedia Commons (${stripHtml(m.LicenseShortName?.value)||'Public domain'})`, link: ii.descriptionurl };
+    }).filter(Boolean);
+  }
+};
+const SOURCE_NAMES = {aic:'シカゴ美術館', cma:'クリーブランド美術館', met:'メトロポリタン美術館', wiki:'Wikimedia Commons'};
+
+async function pool(items, conc, fn){
+  let i = 0; const workers = Array.from({length:Math.min(conc,items.length)}, async ()=>{
+    while(i < items.length){ const k = i++; await fn(items[k], k); }
+  });
+  await Promise.all(workers);
+}
+
+/* 画像読み込み（CORS許可されたものだけを採用＝書き出し可能） */
+function loadImage(url, ms=20000){
+  return new Promise((res, rej)=>{
+    const img = new Image(); img.crossOrigin = 'anonymous'; img.decoding = 'async';
+    const t = setTimeout(()=>{ img.src=''; rej(new Error('timeout')); }, ms);
+    img.onload = ()=>{ clearTimeout(t); res(img); };
+    img.onerror = ()=>{ clearTimeout(t); rej(new Error('load error')); };
+    img.src = url;
+  });
+}
+
+/* ====== 収集 ====== */
+async function collect(query, need){
+  const enabled = Object.keys(SOURCES).filter(k => $( 'src'+{aic:'Aic',cma:'Cma',met:'Met',wiki:'Wiki'}[k] ).checked);
+  if(!enabled.length) throw new Error('収集元を1つ以上選んでください');
+  const per = Math.ceil(need*1.6/enabled.length)+4;
+  log(`テーマ「${query}」で ${enabled.map(k=>SOURCE_NAMES[k]).join('・')} を検索中…`);
+  const results = await Promise.all(enabled.map(async k=>{
+    try{ const r = await SOURCES[k](query, per); log(`  ${SOURCE_NAMES[k]}: ${r.length}件の候補`, r.length?'o':''); return shuffle(r).slice(0, per*2); }
+    catch(e){ log(`  ${SOURCE_NAMES[k]}: 取得失敗 (${e.message})`, 'e'); return []; }
+  }));
+  // 収集元が偏らないように交互に並べる
+  const cands = []; const seen = new Set();
+  for(let i=0; results.some(r=>i<r.length); i++) for(const r of results) if(r[i] && !seen.has(r[i].url)){ seen.add(r[i].url); cands.push(r[i]); }
+  if(!cands.length) throw new Error('候補画像が見つかりませんでした。テーマを変えて再試行してください');
+  log(`候補 ${cands.length}件から画像をダウンロード中…`);
+  const got = []; let done = 0;
+  await pool(cands, 6, async c=>{
+    if(got.length >= need) return;
+    try{
+      const img = await loadImage(c.url);
+      const ar = img.naturalWidth / img.naturalHeight;
+      if(img.naturalWidth < 200 || img.naturalHeight < 200 || ar > 3.2 || ar < 1/3.2) throw new Error('size');
+      if(got.length < need){ got.push({...c, img, ar}); }
+    }catch(e){}
+    done++; prog(0.15 + 0.75*Math.min(1, got.length/need));
+  });
+  log(`${got.length}枚の画像を取得しました`, 'o');
+  return got;
+}
+
+/* ====== 描画ユーティリティ ====== */
+function drawCover(ctx, img, x, y, w, h){
+  const iw = img.naturalWidth, ih = img.naturalHeight, s = Math.max(w/iw, h/ih);
+  const sw = w/s, sh = h/s, sx = (iw-sw)/2, sy = (ih-sh)/2;
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+}
+function paperBackground(ctx, W, H, color){
+  ctx.fillStyle = color; ctx.fillRect(0,0,W,H);
+  // 紙の質感（細かなノイズ）
+  const tile = document.createElement('canvas'); tile.width = tile.height = 256;
+  const tc = tile.getContext('2d'); const id = tc.createImageData(256,256);
+  const dark = isDark(color);
+  for(let i=0;i<id.data.length;i+=4){ const v = rnd()*255; id.data[i]=id.data[i+1]=id.data[i+2]=v; id.data[i+3]= dark? 10 : 14; }
+  tc.putImageData(id,0,0);
+  ctx.save(); ctx.fillStyle = ctx.createPattern(tile,'repeat'); ctx.fillRect(0,0,W,H); ctx.restore();
+  // ほのかな周辺減光
+  const g = ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.3,W/2,H/2,Math.max(W,H)*0.75);
+  g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1, dark?'rgba(0,0,0,.35)':'rgba(90,60,20,.12)');
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+}
+function isDark(hex){ const n=parseInt(hex.slice(1),16); return ((n>>16)*0.299 + (n>>8&255)*0.587 + (n&255)*0.114) < 110; }
+
+/* ====== レイアウト1: スクラップブック（貼った写真風） ====== */
+function layoutScrap(ctx, imgs, R, unit){
+  const n = imgs.length;
+  let cols = Math.max(1, Math.round(Math.sqrt(n * R.w / R.h))); let rows = Math.ceil(n/cols);
+  while(cols*rows < n) cols++;
+  const cw = R.w/cols, ch = R.h/rows;
+  // 余ったセルがあれば最終行を広げる
+  const cells = [];
+  for(let r=0;r<rows;r++){
+    const inRow = (r===rows-1) ? n - cols*(rows-1) : cols;
+    const w = R.w/inRow;
+    for(let c=0;c<inRow;c++) cells.push({cx:R.x + w*(c+.5), cy:R.y + ch*(r+.5), w, h:ch});
+  }
+  const order = shuffle(imgs.map((im,i)=>({im, cell:cells[i]})));
+  for(const {im, cell} of order){
+    const scale = rr(1.12, 1.38);
+    let w = cell.w*scale, h = w/im.ar;
+    if(h > cell.h*scale){ h = cell.h*scale; w = h*im.ar; }
+    const cx = cell.cx + rr(-.12,.12)*cell.w, cy = cell.cy + rr(-.12,.12)*cell.h;
+    const rot = rr(-9, 9) * Math.PI/180;
+    const border = Math.max(unit*2.2, Math.min(w,h)*0.035);
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot);
+    ctx.shadowColor = 'rgba(0,0,0,.38)'; ctx.shadowBlur = unit*3; ctx.shadowOffsetX = unit*.8; ctx.shadowOffsetY = unit*1.4;
+    const polaroid = rnd() < 0.3;
+    const bw = w + border*2, bh = h + border*2 + (polaroid ? border*2.5 : 0);
+    ctx.fillStyle = rnd()<0.5 ? '#fbfaf6' : '#f3eee2';
+    ctx.fillRect(-bw/2, -bh/2, bw, bh);
+    ctx.shadowColor = 'transparent';
+    ctx.drawImage(im.img, -w/2, -bh/2 + border, w, h);
+    // マスキングテープ
+    const tapes = rnd() < 0.55 ? 1 : 2;
+    for(let t=0;t<tapes;t++){
+      const tw = Math.min(bw*0.38, unit*28), th = unit*7;
+      ctx.save();
+      if(tapes===1){ ctx.translate(rr(-.15,.15)*bw, -bh/2); ctx.rotate(rr(-8,8)*Math.PI/180); }
+      else { const sx = t? 1:-1; ctx.translate(sx*bw/2, -bh/2); ctx.rotate(sx*rr(35,50)*Math.PI/180); }
+      const hue = [40, 190, 350, 90, 25][ri(0,4)];
+      ctx.fillStyle = `hsla(${hue}, 45%, 78%, .72)`;
+      ctx.fillRect(-tw/2, -th/2, tw, th);
+      ctx.fillStyle = 'rgba(255,255,255,.18)';
+      for(let k=-tw/2;k<tw/2;k+=unit*3) ctx.fillRect(k, -th/2, unit*1.2, th);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+}
+
+/* ====== レイアウト2: モザイク（隙間なし） ====== */
+function layoutMosaic(ctx, imgs, R, unit){
+  const gap = unit*1.6;
+  const rects = [];
+  (function split(x,y,w,h,n){
+    if(n===1){ rects.push({x,y,w,h}); return; }
+    const k = Math.max(1, Math.min(n-1, Math.round(n/2 + rr(-n/6, n/6))));
+    const f = k/n * rr(0.9,1.1);
+    if(w/h > 1.15 || (w/h > 0.87 && rnd()<0.5)){ const w1 = w*f; split(x,y,w1,h,k); split(x+w1,y,w-w1,h,n-k); }
+    else { const h1 = h*f; split(x,y,w,h1,k); split(x,y+h1,w,h-h1,n-k); }
+  })(R.x, R.y, R.w, R.h, imgs.length);
+  // 縦横比が近い画像を割り当て（トリミングを最小化）
+  const rs = rects.map(r=>({...r, ar:r.w/r.h})).sort((a,b)=>a.ar-b.ar);
+  const is = [...imgs].sort((a,b)=>a.ar-b.ar);
+  rs.forEach((r,i)=>{
+    ctx.save();
+    const x=r.x+gap/2, y=r.y+gap/2, w=r.w-gap, h=r.h-gap;
+    ctx.beginPath(); ctx.rect(x,y,w,h); ctx.clip();
+    drawCover(ctx, is[i].img, x, y, w, h);
+    ctx.restore();
+  });
+}
+
+/* ====== レイアウト3: メイソンリー（縦列） ====== */
+function layoutMasonry(ctx, imgs, R, unit){
+  const gap = unit*1.8;
+  const n = imgs.length;
+  const cols = Math.max(2, Math.min(n, Math.round(Math.sqrt(n * R.w/R.h * 0.9))));
+  const colW = (R.w - gap*(cols-1)) / cols;
+  const columns = Array.from({length:cols}, ()=>({items:[], h:0}));
+  for(const im of [...imgs].sort((a,b)=>a.ar-b.ar)){
+    const c = columns.reduce((a,b)=> (a.items.length*1.0 + a.h/R.h) <= (b.items.length + b.h/R.h) ? a : b);
+    c.items.push(im); c.h += colW/im.ar;
+  }
+  columns.forEach((c, ci)=>{
+    if(!c.items.length) return;
+    shuffle(c.items);
+    const avail = R.h - gap*(c.items.length-1);
+    const k = avail / c.h; let y = R.y;
+    const x = R.x + ci*(colW+gap);
+    c.items.forEach(im=>{
+      const h = colW/im.ar*k;
+      ctx.save(); ctx.beginPath(); ctx.rect(x,y,colW,h); ctx.clip();
+      drawCover(ctx, im.img, x, y, colW, h); ctx.restore();
+      y += h + gap;
+    });
+  });
+}
+
+const LAYOUTS = { scrap: layoutScrap, mosaic: layoutMosaic, masonry: layoutMasonry };
+
+/* ====== ページ生成 ====== */
+function renderPage(canvas, imgs, style, opts){
+  const pxPerMm = opts.dpi / 25.4;
+  const W = Math.round(A4.w*pxPerMm), H = Math.round(A4.h*pxPerMm);
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  paperBackground(ctx, W, H, opts.bg);
+  const m = opts.margin*pxPerMm;
+  const creditH = opts.credits ? 5*pxPerMm : 0;
+  const R = { x:m, y:m, w:W-2*m, h:H-2*m-creditH };
+  // スクラップは周囲にはみ出すため内側に寄せ、ページ外へは描かない
+  ctx.save(); ctx.beginPath(); ctx.rect(m, m, W-2*m, H-2*m); ctx.clip();
+  if(style==='scrap'){ const p = 4*pxPerMm; LAYOUTS.scrap(ctx, imgs, {x:R.x+p, y:R.y+p, w:R.w-2*p, h:R.h-2*p}, pxPerMm*0.35); }
+  else LAYOUTS[style](ctx, imgs, R, pxPerMm*0.35);
+  ctx.restore();
+  if(opts.credits){
+    const y0 = H - m - creditH;
+    ctx.fillStyle = isDark(opts.bg) ? 'rgba(20,18,15,.85)' : 'rgba(255,253,248,.9)';
+    ctx.fillRect(m, y0, W-2*m, creditH);
+    ctx.fillStyle = isDark(opts.bg) ? '#d8d0c0' : '#4a4237';
+    const text = '出典（パブリックドメイン/CC0）: ' + opts.allImgs.map(c=>`${c.title}${c.artist?' / '+c.artist:''}`).join('　｜　');
+    fitText(ctx, text, m + pxPerMm*1.5, y0, W-2*m-pxPerMm*3, creditH, pxPerMm);
+  }
+}
+function fitText(ctx, text, x, y, w, h, pxPerMm){
+  // 2行に収まるまで文字サイズを下げる（最小約1.2pt）
+  for(let size=pxPerMm*1.6; size>=pxPerMm*0.42; size*=0.92){
+    ctx.font = `${size}px "Hiragino Sans","Noto Sans JP",sans-serif`;
+    const lines = wrap(ctx, text, w);
+    if(lines.length*size*1.2 <= h*0.92 || size*0.92 < pxPerMm*0.42){
+      const lh = size*1.2, top = y + (h - lines.length*lh)/2 + size*0.9;
+      lines.slice(0, Math.floor(h/lh)).forEach((l,i)=>ctx.fillText(l, x, top + i*lh));
+      return;
+    }
+  }
+}
+function wrap(ctx, text, w){
+  const lines=[]; let cur='';
+  for(const ch of text){ if(ctx.measureText(cur+ch).width > w){ lines.push(cur); cur=ch; } else cur+=ch; }
+  if(cur) lines.push(cur); return lines;
+}
+
+/* ====== 状態とUI ====== */
+let state = null; // {images, query}
+
+function readOpts(){
+  return { dpi:+$('dpi').value, margin:+$('margin').value, bg:$('bg').value, credits:$('credit').checked };
+}
+function styles(){
+  const v = $('layout').value;
+  if(v!=='mix') return [v, v];
+  const all = ['scrap','mosaic','masonry']; shuffle(all); return [all[0], all[1]];
+}
+function draw(){
+  const opts = readOpts();
+  const imgs = state.images; const half = Math.ceil(imgs.length/2);
+  const front = imgs.slice(0, half), back = imgs.slice(half);
+  const [s1, s2] = styles();
+  renderPage($('c1'), front, s1, {...opts, credits:false});
+  renderPage($('c2'), back.length? back : front, s2, {...opts, allImgs: imgs});
+  for(const k of ['1','2']){ $('c'+k).hidden = false; $('e'+k).hidden = true; }
+  const lab = {scrap:'スクラップ', mosaic:'モザイク', masonry:'メイソンリー'};
+  $('info1').textContent = `${front.length}枚・${lab[s1]}`;
+  $('info2').textContent = `${(back.length?back:front).length}枚・${lab[s2]}`;
+  renderCredits();
+}
+function renderCredits(){
+  const ol = $('credits'); ol.innerHTML = '';
+  state.images.forEach(c=>{
+    const li = document.createElement('li');
+    const a = document.createElement('a'); a.href = c.link || c.url; a.target = '_blank'; a.rel = 'noopener';
+    a.textContent = c.title || '(無題)';
+    li.append(a, document.createTextNode(` — ${c.artist||'作者不詳'}${c.date?', '+c.date:''}／${c.source}`));
+    ol.appendChild(li);
+  });
+  $('nCred').textContent = state.images.length;
+}
+function setSeed(){
+  let s = $('seed').value.trim();
+  if(s===''){ s = String(Math.floor(Math.random()*1e9)); $('seed').placeholder = '前回: '+s; }
+  rnd = mulberry32(+s);
+  return s;
+}
+function busy(b){ for(const id of ['go','reshuffle','pdf','png1','png2','credTxt']) $(id).disabled = b || (id!=='go' && !state); }
+
+async function run(){
+  busy(true); $('log').innerHTML=''; prog(0.03);
+  try{
+    const seed = setSeed();
+    let q = $('theme').value;
+    if(q==='__random') q = RANDOM_THEMES[ri(0, RANDOM_THEMES.length-1)];
+    if(q==='__custom') q = $('custom').value.trim() || 'flower';
+    const need = (+$('count').value) * 2;
+    const images = await collect(q, need);
+    if(images.length < 2) throw new Error('使える画像が少なすぎます。収集元やテーマを変えてください');
+    if(images.length < need) log(`目標${need}枚に対し${images.length}枚で作成します`, 'e');
+    state = { images: shuffle(images), query:q };
+    log('コラージュを貼り付け中…'); prog(0.95);
+    await new Promise(r=>setTimeout(r,30));
+    draw(); prog(1);
+    log(`完成しました（テーマ: ${q} / シード: ${seed}）`, 'o');
+  }catch(e){ log('エラー: '+e.message, 'e'); prog(0); }
+  finally{ busy(false); }
+}
+
+function download(blob, name){
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+}
+const stamp = () => new Date().toISOString().slice(0,16).replace(/[-:T]/g,'');
+
+function exportPDF(){
+  if(!window.jspdf){ log('PDFライブラリを読み込めませんでした。PNGで保存してください','e'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4', compress:true });
+  doc.setProperties({ title:'PD Collage - '+state.query, subject:'Public domain collage (A4 landscape, duplex)',
+    keywords: state.images.map(c=>c.title).join('; ').slice(0, 2000) });
+  doc.addImage($('c1').toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, A4.w, A4.h, undefined, 'FAST');
+  doc.addPage('a4', 'landscape');
+  doc.addImage($('c2').toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, A4.w, A4.h, undefined, 'FAST');
+  doc.save(`collage-${stamp()}.pdf`);
+  log('PDF（A4横・2ページ）を保存しました', 'o');
+}
+function exportPNG(k){ $('c'+k).toBlob(b=>download(b, `collage-${stamp()}-${k==='1'?'front':'back'}.png`), 'image/png'); }
+
+$('go').onclick = run;
+$('reshuffle').onclick = ()=>{ $('seed').value=''; setSeed(); shuffle(state.images); draw(); log('配置を変更しました','o'); };
+$('pdf').onclick = exportPDF;
+$('png1').onclick = ()=>exportPNG('1');
+$('png2').onclick = ()=>exportPNG('2');
+$('credTxt').onclick = ()=>{
+  const t = state.images.map((c,i)=>`${i+1}. ${c.title} — ${c.artist||'作者不詳'}${c.date?', '+c.date:''} / ${c.source}\n   ${c.link||c.url}`).join('\n');
+  download(new Blob([`PD Collage 出典一覧（テーマ: ${state.query}）\n\n${t}\n`], {type:'text/plain'}), `collage-credits-${stamp()}.txt`);
+};
+$('count').oninput = e => $('countV').textContent = e.target.value;
+$('theme').onchange = e => $('custom').style.display = e.target.value==='__custom' ? 'block' : 'none';
+for(const id of ['layout','dpi','margin','bg','credit']) $(id).addEventListener('change', ()=>{ if(state){ setSeed(); draw(); } });
+// URLに ?auto を付けると開いた瞬間に自動生成
+if(new URLSearchParams(location.search).has('auto')) run();
+</script>
+</body>
+</html>
