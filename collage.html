@@ -6,6 +6,8 @@
 <title>PD Collage</title>
 <meta name="description" content="パブリックドメイン画像を自動収集し、A4横・両面のコラージュを自動生成するアプリ">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#f4f1ea; --panel:#fffdf8; --bd:#e2dccf; --tx:#2b2620; --sub:#7a7062;
@@ -71,6 +73,17 @@ summary{cursor:pointer;font-size:13px;color:var(--sub)}
     <h2>設定</h2>
     <label class="f" for="theme">テーマ</label>
     <select id="theme">
+      <optgroup label="ヴィンテージ素材（デザインペーパー向け）">
+        <option value="sheet music" selected>楽譜・歌の本</option>
+        <option value="children's book illustration">古い絵本の挿絵</option>
+        <option value="poster advertisement">ヴィンテージ広告・ポスター</option>
+        <option value="botanical illustration">植物図版</option>
+        <option value="ornithology bird plate">鳥類図鑑</option>
+        <option value="French print fashion">フランスの版画・ファッション画</option>
+        <option value="trade card">トレードカード・紙もの</option>
+        <option value="__vintage">ヴィンテージおまかせ</option>
+      </optgroup>
+      <optgroup label="一般">
       <option value="__random">おまかせ（ランダム）</option>
       <option value="flower botanical">花・植物</option>
       <option value="bird">鳥</option>
@@ -83,6 +96,7 @@ summary{cursor:pointer;font-size:13px;color:var(--sub)}
       <option value="architecture building">建築</option>
       <option value="landscape painting">風景画</option>
       <option value="portrait">肖像画</option>
+      </optgroup>
       <option value="__custom">自由入力（英語推奨）…</option>
     </select>
     <input id="custom" type="text" placeholder="例: cat, mountain, kimono" style="margin-top:6px;display:none">
@@ -97,6 +111,7 @@ summary{cursor:pointer;font-size:13px;color:var(--sub)}
 
     <label class="f" for="layout">貼り付けスタイル</label>
     <select id="layout">
+      <option value="paper" selected>デザインペーパー（ヴィンテージ紙面風）</option>
       <option value="scrap">スクラップブック（写真を貼った風）</option>
       <option value="mosaic">モザイク（隙間なく敷き詰め）</option>
       <option value="masonry">メイソンリー（縦列）</option>
@@ -142,6 +157,9 @@ summary{cursor:pointer;font-size:13px;color:var(--sub)}
     </div>
 
     <div class="chk" style="margin-top:12px">
+      <label><input type="checkbox" id="paperOnly" checked>紙ものだけ（版画・楽譜・本・素描など）</label>
+      <label><input type="checkbox" id="vintage" checked>古紙風の色味に加工</label>
+      <label><input type="checkbox" id="banner" checked>飾りリボン文字（デザインペーパー）</label>
       <label><input type="checkbox" id="credit">裏面の下端に出典を小さく印字</label>
     </div>
 
@@ -184,6 +202,8 @@ summary{cursor:pointer;font-size:13px;color:var(--sub)}
 const A4 = { w: 297, h: 210 }; // mm（横）
 const RANDOM_THEMES = ['flower botanical','bird','sea ship','Japanese woodblock print','map','animal',
   'butterfly insect','astronomy','architecture','landscape','fish','fruit','still life','horse','tree'];
+const VINTAGE_THEMES = ['sheet music','children\'s book illustration','poster advertisement','botanical illustration',
+  'ornithology bird plate','French print fashion','trade card','song illustration','almanac','valentine card'];
 const $ = id => document.getElementById(id);
 
 /* ====== 乱数（シード付き） ====== */
@@ -206,11 +226,13 @@ async function getJSON(url, ms=20000){
 const stripHtml = s => (s||'').replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim();
 
 /* ====== 収集元ごとの検索 ======
-   各関数は {url, title, artist, date, source, link} の配列を返す（すべてPD/CC0のみ） */
+   各関数は {url, title, artist, date, source, link, src, relay} の配列を返す（すべてPD/CC0のみ）
+   relay:true … その館の画像サーバーがCORS非対応のため、画像中継(wsrv.nl)経由で読み込む */
+const cleanUrl = u => (u||'').split('?')[0];
 const SOURCES = {
   async aic(q, n){
     const base = 'https://api.artic.edu/api/v1/artworks/search';
-    const qs = p => `${base}?q=${encodeURIComponent(q)}&query[term][is_public_domain]=true&fields=id,title,artist_title,date_display,image_id&limit=${p.limit}&page=${p.page}`;
+    const qs = p => `${base}?q=${encodeURIComponent(q)}&query[term][is_public_domain]=true&fields=id,title,artist_title,date_display,image_id,artwork_type_title,classification_title&limit=${p.limit}&page=${p.page}`;
     const first = await getJSON(qs({limit:1,page:1}));
     const total = Math.min(first.pagination?.total || 0, 1000);
     if(!total) return [];
@@ -218,8 +240,8 @@ const SOURCES = {
     const page = ri(1, Math.max(1, Math.floor(total/limit)));
     const j = await getJSON(qs({limit, page}));
     return (j.data||[]).filter(d=>d.image_id).map(d=>({
-      url:`https://www.artic.edu/iiif/2/${d.image_id}/full/1200,/0/default.jpg`,
-      title:d.title, artist:d.artist_title||'', date:d.date_display||'',
+      url:`https://www.artic.edu/iiif/2/${d.image_id}/full/843,/0/default.jpg`,
+      title:d.title, artist:d.artist_title||'', date:d.date_display||'', src:'aic', kind:`${d.artwork_type_title||''} ${d.classification_title||''}`,
       source:'Art Institute of Chicago (CC0)', link:`https://www.artic.edu/artworks/${d.id}`
     }));
   },
@@ -232,19 +254,29 @@ const SOURCES = {
     const limit = Math.min(100, Math.max(n, 20));
     const j = await getJSON(qs(limit, ri(0, Math.max(0,total-limit))));
     return (j.data||[]).filter(d=>d.images?.web?.url).map(d=>({
-      url:d.images.web.url, title:d.title, artist:(d.creators?.[0]?.description||'').replace(/\s*\(.*$/,''),
+      url:d.images.web.url, relay:true, src:'cma', kind:d.type||'',
+      title:d.title, artist:(d.creators?.[0]?.description||'').replace(/\s*\(.*$/,''),
       date:d.creation_date||'', source:'Cleveland Museum of Art (CC0)', link:d.url
     }));
   },
   async met(q, n){
-    const s = await getJSON(`https://collectionapi.metmuseum.org/public/collection/v1/search?hasImages=true&q=${encodeURIComponent(q)}`);
-    const ids = shuffle((s.objectIDs||[]).slice(0, 2000)).slice(0, Math.min(60, n*3));
+    // 旧 /v1/search は2026-10-01に廃止。後継の /v1.1/search（offset/limit でページ送り）を使う
+    const base = 'https://collectionapi.metmuseum.org/public/collection/v1.1/search';
+    const want = Math.min(60, n*3);
+    const first = await getJSON(`${base}?hasImages=true&q=${encodeURIComponent(q)}&limit=${want}&offset=0`);
+    const total = first.total || 0;
+    let ids = first.objectIDs || [];
+    if(total > want*2){
+      const off = ri(0, Math.min(total, 2000) - want);
+      try{ const j = await getJSON(`${base}?hasImages=true&q=${encodeURIComponent(q)}&limit=${want}&offset=${off}`); if(j.objectIDs?.length) ids = j.objectIDs; }catch(e){}
+    }
     const out = [];
-    await pool(ids, 8, async id => {
+    await pool(shuffle([...ids]).slice(0, want), 8, async id => {
       try{
         const o = await getJSON(`https://collectionapi.metmuseum.org/public/collection/v1/objects/${id}`, 12000);
         if(o.isPublicDomain && (o.primaryImageSmall||o.primaryImage)) out.push({
-          url:o.primaryImageSmall||o.primaryImage, title:o.title, artist:o.artistDisplayName||'',
+          url:o.primaryImageSmall||o.primaryImage, relay:true, src:'met', kind:`${o.classification||''} ${o.objectName||''}`,
+          title:o.title, artist:o.artistDisplayName||'',
           date:o.objectDate||'', source:'The Metropolitan Museum of Art (Open Access, CC0)', link:o.objectURL
         });
       }catch(e){}
@@ -252,22 +284,33 @@ const SOURCES = {
     return out;
   },
   async wiki(q, n){
-    const url = 'https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*'
-      + '&generator=search&gsrnamespace=6&gsrlimit=50'
-      + `&gsroffset=${ri(0,100)}&gsrsearch=${encodeURIComponent(q+' filetype:bitmap')}`
-      + '&prop=imageinfo&iiprop=url|size|extmetadata&iiurlwidth=1200';
-    const j = await getJSON(url);
-    const pages = Object.values(j.query?.pages||{});
-    return pages.map(p=>{
-      const ii = p.imageinfo?.[0]; if(!ii) return null;
-      const m = ii.extmetadata||{};
-      const lic = (m.LicenseShortName?.value||'') + ' ' + (m.License?.value||'');
-      if(!/public domain|^\s*pd|\bpd-|cc0/i.test(lic)) return null;
-      if(!/\.(jpe?g|png|tiff?)$/i.test(ii.url)) return null;
-      return { url: ii.thumburl||ii.url, title: stripHtml(m.ObjectName?.value) || p.title.replace(/^File:/,'').replace(/\.\w+$/,''),
-        artist: stripHtml(m.Artist?.value).slice(0,80), date: stripHtml(m.DateTimeOriginal?.value).slice(0,40),
-        source:`Wikimedia Commons (${stripHtml(m.LicenseShortName?.value)||'Public domain'})`, link: ii.descriptionurl };
-    }).filter(Boolean);
+    const search = async (query, offset) => {
+      const url = 'https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*'
+        + '&generator=search&gsrnamespace=6&gsrlimit=50'
+        + `&gsroffset=${offset}&gsrsearch=${encodeURIComponent(query)}`
+        + '&prop=imageinfo&iiprop=url|size|mime|extmetadata&iiurlwidth=1280';
+      const j = await getJSON(url);
+      return Object.values(j.query?.pages||{}).map(p=>{
+        const ii = p.imageinfo?.[0]; if(!ii) return null;
+        const m = ii.extmetadata||{};
+        const lic = stripHtml(m.LicenseShortName?.value) + ' ' + stripHtml(m.License?.value);
+        if(!/public domain|(^|\s)pd($|\b|-)|cc0|no restrictions/i.test(lic)) return null;
+        // 画像URLの末尾には ?utm_source=… が付くので、拡張子は ? より前で判定する
+        const isImg = /^image\/(jpeg|png|tiff)/.test(ii.mime||'') || /\.(jpe?g|png|tiff?)$/i.test(cleanUrl(ii.url));
+        if(!isImg) return null;
+        return { url: cleanUrl(ii.thumburl||ii.url), src:'wiki',
+          title: stripHtml(m.ObjectName?.value) || p.title.replace(/^File:/,'').replace(/\.\w+$/,''),
+          artist: stripHtml(m.Artist?.value).slice(0,80), date: stripHtml(m.DateTimeOriginal?.value).slice(0,40),
+          source:`Wikimedia Commons (${stripHtml(m.LicenseShortName?.value)||'Public domain'})`, link: ii.descriptionurl };
+      }).filter(Boolean);
+    };
+    // まず「著作権状態=パブリックドメイン」の構造化データで絞り込んで検索し、少なければ通常検索で補う
+    let r = await search(`${q} filetype:bitmap haswbstatement:P6216=Q19652`, ri(0,20)).catch(()=>[]);
+    if(r.length < Math.min(n, 10)){
+      const more = await search(`${q} filetype:bitmap`, ri(0,60));
+      r = r.concat(more);
+    }
+    return r;
   }
 };
 const SOURCE_NAMES = {aic:'シカゴ美術館', cma:'クリーブランド美術館', met:'メトロポリタン美術館', wiki:'Wikimedia Commons'};
@@ -289,6 +332,25 @@ function loadImage(url, ms=20000){
     img.src = url;
   });
 }
+/* 画像中継サービス（wsrv.nl）: CORSヘッダーを付けて画像を返す無料の公開サービス */
+const relayUrl = u => `https://wsrv.nl/?url=${encodeURIComponent(u)}&w=1400&we&output=jpg&q=88`;
+async function loadCandidate(c){
+  if(c.relay) return loadImage(relayUrl(c.url));
+  try{ return await loadImage(c.url); }
+  catch(e){ return loadImage(relayUrl(c.url)); } // 直接読めなければ中継経由で再挑戦
+}
+
+/* 紙もの（版画・素描・楽譜・本・印刷物など）か。種別情報のないもの（Wikimediaのスキャン等）は通す */
+const PAPER_RE = /print|drawing|book|manuscript|ephemera|poster|card|album|photograph|watercolou?r|map|paper|lithograph|engraving|etching|woodcut|sheet|music|illustrat|page|folio|calligraph/i;
+const isPaper = c => !c.kind || !c.kind.trim() || PAPER_RE.test(c.kind);
+/* ほぼ白紙（濃淡がほとんどない）画像を除く */
+function isBlank(img){
+  const c = document.createElement('canvas'); c.width = c.height = 24;
+  const x = c.getContext('2d'); x.drawImage(img, 0, 0, 24, 24);
+  const d = x.getImageData(0,0,24,24).data; let s=0, s2=0, n=0;
+  for(let i=0;i<d.length;i+=4){ const v = d[i]*.299 + d[i+1]*.587 + d[i+2]*.114; s+=v; s2+=v*v; n++; }
+  return Math.sqrt(s2/n - (s/n)**2) < 16;
+}
 
 /* ====== 収集 ====== */
 async function collect(query, need){
@@ -303,28 +365,66 @@ async function collect(query, need){
   // 収集元が偏らないように交互に並べる
   const cands = []; const seen = new Set();
   for(let i=0; results.some(r=>i<r.length); i++) for(const r of results) if(r[i] && !seen.has(r[i].url)){ seen.add(r[i].url); cands.push(r[i]); }
+  if($('paperOnly').checked){
+    const before = cands.length;
+    for(let i=cands.length-1;i>=0;i--) if(!isPaper(cands[i])) cands.splice(i,1);
+    if(before > cands.length) log(`  紙もの以外（彫刻・器・絵画など）${before-cands.length}件を除外`);
+  }
   if(!cands.length) throw new Error('候補画像が見つかりませんでした。テーマを変えて再試行してください');
   log(`候補 ${cands.length}件から画像をダウンロード中…`);
   const got = []; let done = 0;
   await pool(cands, 6, async c=>{
     if(got.length >= need) return;
     try{
-      const img = await loadImage(c.url);
+      const img = await loadCandidate(c);
       const ar = img.naturalWidth / img.naturalHeight;
       if(img.naturalWidth < 200 || img.naturalHeight < 200 || ar > 3.2 || ar < 1/3.2) throw new Error('size');
-      if(got.length < need){ got.push({...c, img, ar}); }
+      if(isBlank(img)) throw new Error('blank');
+      const crop = trimBox(img); // スキャンの余白を自動で切り落とす
+      if(got.length < need){ got.push({...c, img, crop, ar: crop.w/crop.h}); }
     }catch(e){}
     done++; prog(0.15 + 0.75*Math.min(1, got.length/need));
   });
-  log(`${got.length}枚の画像を取得しました`, 'o');
+  const by = {}; got.forEach(g=>by[g.src]=(by[g.src]||0)+1);
+  log(`${got.length}枚の画像を取得しました（${enabled.map(k=>`${SOURCE_NAMES[k]} ${by[k]||0}`).join('・')}）`, 'o');
   return got;
 }
 
 /* ====== 描画ユーティリティ ====== */
-function drawCover(ctx, img, x, y, w, h){
-  const iw = img.naturalWidth, ih = img.naturalHeight, s = Math.max(w/iw, h/ih);
-  const sw = w/s, sh = h/s, sx = (iw-sw)/2, sy = (ih-sh)/2;
-  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+/* スキャン画像の外周の余白（台紙・白地）を検出し、中身の範囲 {x,y,w,h} を返す */
+function trimBox(img){
+  const iw = img.naturalWidth, ih = img.naturalHeight, full = {x:0, y:0, w:iw, h:ih};
+  const k = 96 / Math.max(iw, ih), W = Math.max(8, Math.round(iw*k)), H = Math.max(8, Math.round(ih*k));
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d'); x.drawImage(img, 0, 0, W, H);
+  const d = x.getImageData(0, 0, W, H).data, px = (i,j) => (j*W + i)*4;
+  let br=0, bg=0, bb=0, n=0;
+  for(let i=0;i<W;i++) for(const j of [0, H-1]){ const p=px(i,j); br+=d[p]; bg+=d[p+1]; bb+=d[p+2]; n++; }
+  for(let j=0;j<H;j++) for(const i of [0, W-1]){ const p=px(i,j); br+=d[p]; bg+=d[p+1]; bb+=d[p+2]; n++; }
+  br/=n; bg/=n; bb/=n;
+  const rows = new Array(H).fill(0), cols = new Array(W).fill(0);
+  for(let j=0;j<H;j++) for(let i=0;i<W;i++){
+    const p = px(i,j);
+    if(Math.max(Math.abs(d[p]-br), Math.abs(d[p+1]-bg), Math.abs(d[p+2]-bb)) > 34){ rows[j]++; cols[i]++; }
+  }
+  const first = (a, t) => a.findIndex(v => v > t), last = (a, t) => a.length - 1 - [...a].reverse().findIndex(v => v > t);
+  const x0 = first(cols, H*0.03), x1 = last(cols, H*0.03), y0 = first(rows, W*0.03), y1 = last(rows, W*0.03);
+  if(x0 < 0 || y0 < 0 || x1 <= x0 || y1 <= y0) return full;
+  const pad = 0.02*Math.max(W, H);
+  const bx0 = Math.max(0, x0-pad), by0 = Math.max(0, y0-pad), bx1 = Math.min(W, x1+1+pad), by1 = Math.min(H, y1+1+pad);
+  if((bx1-bx0)*(by1-by0) < W*H*0.2) return full; // 切りすぎる場合は元のまま
+  return { x: bx0/k, y: by0/k, w: (bx1-bx0)/k, h: (by1-by0)/k };
+}
+/* 余白を除いた範囲を (dx,dy,dw,dh) に描く */
+function drawCrop(ctx, im, dx, dy, dw, dh){
+  const c = im.crop || {x:0, y:0, w:im.img.naturalWidth, h:im.img.naturalHeight};
+  ctx.drawImage(im.img, c.x, c.y, c.w, c.h, dx, dy, dw, dh);
+}
+/* 枠いっぱいに敷く（はみ出しは中央で切る） */
+function drawCover(ctx, im, x, y, w, h){
+  const c = im.crop || {x:0, y:0, w:im.img.naturalWidth, h:im.img.naturalHeight};
+  const s = Math.max(w/c.w, h/c.h), sw = w/s, sh = h/s;
+  ctx.drawImage(im.img, c.x + (c.w-sw)/2, c.y + (c.h-sh)/2, sw, sh, x, y, w, h);
 }
 function paperBackground(ctx, W, H, color){
   ctx.fillStyle = color; ctx.fillRect(0,0,W,H);
@@ -370,7 +470,7 @@ function layoutScrap(ctx, imgs, R, unit){
     ctx.fillStyle = rnd()<0.5 ? '#fbfaf6' : '#f3eee2';
     ctx.fillRect(-bw/2, -bh/2, bw, bh);
     ctx.shadowColor = 'transparent';
-    ctx.drawImage(im.img, -w/2, -bh/2 + border, w, h);
+    drawCrop(ctx, im, -w/2, -bh/2 + border, w, h);
     // マスキングテープ
     const tapes = rnd() < 0.55 ? 1 : 2;
     for(let t=0;t<tapes;t++){
@@ -390,8 +490,7 @@ function layoutScrap(ctx, imgs, R, unit){
 }
 
 /* ====== レイアウト2: モザイク（隙間なし） ====== */
-function layoutMosaic(ctx, imgs, R, unit){
-  const gap = unit*1.6;
+function guillotine(R, n){
   const rects = [];
   (function split(x,y,w,h,n){
     if(n===1){ rects.push({x,y,w,h}); return; }
@@ -399,17 +498,24 @@ function layoutMosaic(ctx, imgs, R, unit){
     const f = k/n * rr(0.9,1.1);
     if(w/h > 1.15 || (w/h > 0.87 && rnd()<0.5)){ const w1 = w*f; split(x,y,w1,h,k); split(x+w1,y,w-w1,h,n-k); }
     else { const h1 = h*f; split(x,y,w,h1,k); split(x,y+h1,w,h-h1,n-k); }
-  })(R.x, R.y, R.w, R.h, imgs.length);
-  // 縦横比が近い画像を割り当て（トリミングを最小化）
+  })(R.x, R.y, R.w, R.h, n);
+  return rects;
+}
+/* 縦横比の近いもの同士を組み合わせる（トリミングを最小化） */
+function pairByAspect(rects, imgs){
   const rs = rects.map(r=>({...r, ar:r.w/r.h})).sort((a,b)=>a.ar-b.ar);
   const is = [...imgs].sort((a,b)=>a.ar-b.ar);
-  rs.forEach((r,i)=>{
+  return rs.map((r,i)=>({r, im:is[i]}));
+}
+function layoutMosaic(ctx, imgs, R, unit){
+  const gap = unit*1.6;
+  for(const {r, im} of pairByAspect(guillotine(R, imgs.length), imgs)){
     ctx.save();
     const x=r.x+gap/2, y=r.y+gap/2, w=r.w-gap, h=r.h-gap;
     ctx.beginPath(); ctx.rect(x,y,w,h); ctx.clip();
-    drawCover(ctx, is[i].img, x, y, w, h);
+    drawCover(ctx, im, x, y, w, h);
     ctx.restore();
-  });
+  }
 }
 
 /* ====== レイアウト3: メイソンリー（縦列） ====== */
@@ -432,13 +538,131 @@ function layoutMasonry(ctx, imgs, R, unit){
     c.items.forEach(im=>{
       const h = colW/im.ar*k;
       ctx.save(); ctx.beginPath(); ctx.rect(x,y,colW,h); ctx.clip();
-      drawCover(ctx, im.img, x, y, colW, h); ctx.restore();
+      drawCover(ctx, im, x, y, colW, h); ctx.restore();
       y += h + gap;
     });
   });
 }
 
-const LAYOUTS = { scrap: layoutScrap, mosaic: layoutMosaic, masonry: layoutMasonry };
+/* ====== レイアウト4: デザインペーパー（ヴィンテージ紙面風） ======
+   罫線で区切ったコマ割り＋コマをまたいで貼った切り抜き＋飾りリボン文字 */
+const INK = '#4a3222';
+const PANEL_TONES = ['#f4e7c9','#efdcb6','#f6ecd6','#ead5ae'];
+const RIBBON_COLORS = ['#c9958a','#9fb39a','#a2b3c4','#d4b47f','#b79fb6'];
+/* 基本は全体を見せ、余白が出すぎないよう最大2割強までは切る（呼び出し側でクリップ） */
+function drawFit(ctx, im, x, y, w, h){
+  const c = im.crop, s = Math.max(Math.min(w/c.w, h/c.h), Math.max(w/c.w, h/c.h)*0.78);
+  const dw = c.w*s, dh = c.h*s;
+  drawCrop(ctx, im, x+(w-dw)/2, y+(h-dh)/2, dw, dh);
+}
+function layoutPaper(ctx, imgs, R, unit, opts){
+  const n = imgs.length;
+  const nOver = n >= 8 ? Math.min(6, Math.round(n*0.28)) : (n >= 5 ? 1 : 0);
+  const base = imgs.slice(0, n-nOver), over = imgs.slice(n-nOver);
+  const gap = unit*4.5;
+  // 1) コマ割り
+  for(const {r, im} of pairByAspect(guillotine(R, base.length), base)){
+    const x=r.x+gap/2, y=r.y+gap/2, w=r.w-gap, h=r.h-gap;
+    ctx.fillStyle = PANEL_TONES[ri(0, PANEL_TONES.length-1)];
+    ctx.fillRect(x, y, w, h);
+    const a = w/h, loss = 1 - Math.min(im.ar, a)/Math.max(im.ar, a);
+    ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+    if(loss > 0.3){ const p = unit*5; ctx.beginPath(); ctx.rect(x+p, y+p, w-2*p, h-2*p); ctx.clip(); drawFit(ctx, im, x+p, y+p, w-2*p, h-2*p); } // 楽譜や挿絵はなるべく切らずに紙面に載せる
+    else drawCover(ctx, im, x, y, w, h);
+    ctx.restore();
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = unit*1.7; ctx.strokeRect(x, y, w, h);
+    ctx.lineWidth = unit*0.6; ctx.strokeRect(x+unit*2.8, y+unit*2.8, w-unit*5.6, h-unit*5.6);
+  }
+  // 2) コマをまたぐ切り抜き
+  for(const im of over){
+    let w = R.w*rr(0.15, 0.25), h = w/im.ar;
+    if(h > R.h*0.42){ h = R.h*0.42; w = h*im.ar; }
+    const cx = R.x + rr(0.1, 0.9)*R.w, cy = R.y + rr(0.14, 0.86)*R.h;
+    const b = unit*2.6;
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(rr(-7, 7)*Math.PI/180);
+    ctx.shadowColor = 'rgba(40,25,10,.35)'; ctx.shadowBlur = unit*4; ctx.shadowOffsetX = unit; ctx.shadowOffsetY = unit*1.6;
+    ctx.fillStyle = PANEL_TONES[0]; ctx.fillRect(-w/2-b, -h/2-b, w+2*b, h+2*b);
+    ctx.shadowColor = 'transparent';
+    drawCrop(ctx, im, -w/2, -h/2, w, h);
+    ctx.strokeStyle = INK; ctx.lineWidth = unit*0.8; ctx.strokeRect(-w/2-b, -h/2-b, w+2*b, h+2*b);
+    ctx.restore();
+  }
+  // 3) 飾りリボン文字（作品名を使う）
+  if(opts.banner){
+    const titles = shuffle(imgs.map(im=>ribbonText(im.title)).filter(Boolean));
+    const k = Math.min(titles.length, imgs.length >= 10 ? 3 : 2);
+    // 3×3のマスから重ならない位置を選ぶ（同じ列・同じ行は避ける）
+    const slots = shuffle([0,1,2]), rowsU = shuffle([0,1,2]);
+    for(let i=0;i<k;i++){
+      const cx = R.x + R.w*(0.2 + 0.3*slots[i] + rr(-0.05, 0.05));
+      const cy = R.y + R.h*(0.17 + 0.33*rowsU[i] + rr(-0.06, 0.06));
+      drawRibbon(ctx, titles[i], cx, cy, R.w*0.34, unit, rr(-9, 9)*Math.PI/180, RIBBON_COLORS[ri(0, RIBBON_COLORS.length-1)]);
+    }
+  }
+}
+function ribbonText(t){
+  t = (t||'').replace(/\b(sheet music( cover)?|song sheet|music sheet|music cover)\b,?/ig, '').replace(/\s*[-–—:,]\s*(plate.*|print|from .*)?$/i, '').replace(/^\s*[-–—:,]\s*/, '').replace(/[\(\[（【].*?[\)\]）】]/g, '').replace(/["“”'‘’]/g,'').replace(/\s+/g,' ').trim();
+  if(t.length < 3) return '';
+  if(t.length > 28){ t = t.slice(0, 28); const sp = t.lastIndexOf(' '); if(sp > 12) t = t.slice(0, sp); t = t.replace(/[,;:\-–—\s]+$/,''); }
+  t = t.replace(/(\s+(the|of|and|a|an|de|la|le|les|du|des|et|with|in|on|to|for|p\.?))+\s*$/i, '').replace(/[,;:\-–—\s]+$/,'');
+  return t;
+}
+function shade(hex, f){
+  const n = parseInt(hex.slice(1),16), c = [n>>16, n>>8&255, n&255].map(v=>Math.max(0,Math.min(255, Math.round(v*(1+f)))));
+  return `rgb(${c.join(',')})`;
+}
+function drawRibbon(ctx, text, cx, cy, maxW, unit, rot, color){
+  let fs = unit*17;
+  const font = s => `italic ${s}px "IM Fell English", "Times New Roman", Georgia, serif`;
+  ctx.font = font(fs);
+  let tw = ctx.measureText(text).width;
+  if(tw > maxW){ fs *= maxW/tw; ctx.font = font(fs); tw = ctx.measureText(text).width; }
+  const h = fs*1.55, w = tw + fs*1.8, tail = fs*1.3, off = h*0.3, notch = h*0.38;
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot);
+  ctx.lineJoin = 'round'; ctx.strokeStyle = INK; ctx.lineWidth = unit*1.1;
+  ctx.shadowColor = 'rgba(40,25,10,.3)'; ctx.shadowBlur = unit*3; ctx.shadowOffsetY = unit;
+  for(const sg of [-1, 1]){ // 後ろに折り返した両端
+    ctx.beginPath();
+    ctx.moveTo(sg*(w/2 - tail*0.35), -h/2 + off);
+    ctx.lineTo(sg*(w/2 + tail), -h/2 + off);
+    ctx.lineTo(sg*(w/2 + tail - notch), off);
+    ctx.lineTo(sg*(w/2 + tail), h/2 + off);
+    ctx.lineTo(sg*(w/2 - tail*0.35), h/2 + off);
+    ctx.closePath(); ctx.fillStyle = shade(color, -0.2); ctx.fill(); ctx.stroke();
+  }
+  ctx.beginPath(); // 本体（ゆるく波打たせる）
+  ctx.moveTo(-w/2, -h/2); ctx.quadraticCurveTo(0, -h/2 - h*0.18, w/2, -h/2);
+  ctx.lineTo(w/2, h/2); ctx.quadraticCurveTo(0, h/2 - h*0.18, -w/2, h/2); ctx.closePath();
+  ctx.fillStyle = color; ctx.fill(); ctx.shadowColor = 'transparent'; ctx.stroke();
+  ctx.fillStyle = INK; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, 0, -h*0.04);
+  ctx.restore();
+}
+
+/* 古紙風の色味（セピア寄せ・黄ばみ・シミ・紙の粒子）。Safariでも動くよう合成モードだけで実装 */
+function vintageGrade(ctx, W, H, unit){
+  ctx.save();
+  ctx.globalCompositeOperation = 'color';    ctx.globalAlpha = 0.26; ctx.fillStyle = '#9c7444'; ctx.fillRect(0,0,W,H);
+  ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = 0.32; ctx.fillStyle = '#f1d9a8'; ctx.fillRect(0,0,W,H);
+  ctx.globalCompositeOperation = 'screen';   ctx.globalAlpha = 0.08; ctx.fillStyle = '#fff1d6'; ctx.fillRect(0,0,W,H);
+  ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = 1;
+  for(let i=0, k=ri(10, 22); i<k; i++){
+    const x = rr(0,W), y = rr(0,H), r = unit*rr(6, 40);
+    const g = ctx.createRadialGradient(x,y,0,x,y,r);
+    g.addColorStop(0, `rgba(160,110,55,${rr(.05,.14).toFixed(3)})`); g.addColorStop(1, 'rgba(160,110,55,0)');
+    ctx.fillStyle = g; ctx.fillRect(x-r, y-r, 2*r, 2*r);
+  }
+  const tile = document.createElement('canvas'); tile.width = tile.height = 256;
+  const tc = tile.getContext('2d'), id = tc.createImageData(256,256);
+  for(let i=0;i<id.data.length;i+=4){ const v = 128 + (rnd()-0.5)*90; id.data[i]=id.data[i+1]=id.data[i+2]=v; id.data[i+3]=255; }
+  tc.putImageData(id,0,0);
+  ctx.globalCompositeOperation = 'overlay'; ctx.globalAlpha = 0.18;
+  ctx.fillStyle = ctx.createPattern(tile, 'repeat'); ctx.fillRect(0,0,W,H);
+  ctx.restore();
+}
+
+const LAYOUTS = { paper: layoutPaper, scrap: layoutScrap, mosaic: layoutMosaic, masonry: layoutMasonry };
 
 /* ====== ページ生成 ====== */
 function renderPage(canvas, imgs, style, opts){
@@ -454,8 +678,9 @@ function renderPage(canvas, imgs, style, opts){
   // スクラップは周囲にはみ出すため内側に寄せ、ページ外へは描かない
   ctx.save(); ctx.beginPath(); ctx.rect(m, m, W-2*m, H-2*m); ctx.clip();
   if(style==='scrap'){ const p = 4*pxPerMm; LAYOUTS.scrap(ctx, imgs, {x:R.x+p, y:R.y+p, w:R.w-2*p, h:R.h-2*p}, pxPerMm*0.35); }
-  else LAYOUTS[style](ctx, imgs, R, pxPerMm*0.35);
+  else LAYOUTS[style](ctx, imgs, R, pxPerMm*0.35, opts);
   ctx.restore();
+  if(opts.vintage) vintageGrade(ctx, W, H, pxPerMm*0.35);
   if(opts.credits){
     const y0 = H - m - creditH;
     ctx.fillStyle = isDark(opts.bg) ? 'rgba(20,18,15,.85)' : 'rgba(255,253,248,.9)';
@@ -487,12 +712,13 @@ function wrap(ctx, text, w){
 let state = null; // {images, query}
 
 function readOpts(){
-  return { dpi:+$('dpi').value, margin:+$('margin').value, bg:$('bg').value, credits:$('credit').checked };
+  return { dpi:+$('dpi').value, margin:+$('margin').value, bg:$('bg').value, credits:$('credit').checked,
+    vintage:$('vintage').checked, banner:$('banner').checked };
 }
 function styles(){
   const v = $('layout').value;
   if(v!=='mix') return [v, v];
-  const all = ['scrap','mosaic','masonry']; shuffle(all); return [all[0], all[1]];
+  const all = ['paper','scrap','mosaic','masonry']; shuffle(all); return [all[0], all[1]];
 }
 function draw(){
   const opts = readOpts();
@@ -502,7 +728,7 @@ function draw(){
   renderPage($('c1'), front, s1, {...opts, credits:false});
   renderPage($('c2'), back.length? back : front, s2, {...opts, allImgs: imgs});
   for(const k of ['1','2']){ $('c'+k).hidden = false; $('e'+k).hidden = true; }
-  const lab = {scrap:'スクラップ', mosaic:'モザイク', masonry:'メイソンリー'};
+  const lab = {paper:'デザインペーパー', scrap:'スクラップ', mosaic:'モザイク', masonry:'メイソンリー'};
   $('info1').textContent = `${front.length}枚・${lab[s1]}`;
   $('info2').textContent = `${(back.length?back:front).length}枚・${lab[s2]}`;
   renderCredits();
@@ -532,6 +758,7 @@ async function run(){
     const seed = setSeed();
     let q = $('theme').value;
     if(q==='__random') q = RANDOM_THEMES[ri(0, RANDOM_THEMES.length-1)];
+    if(q==='__vintage') q = VINTAGE_THEMES[ri(0, VINTAGE_THEMES.length-1)];
     if(q==='__custom') q = $('custom').value.trim() || 'flower';
     const need = (+$('count').value) * 2;
     const images = await collect(q, need);
@@ -539,7 +766,8 @@ async function run(){
     if(images.length < need) log(`目標${need}枚に対し${images.length}枚で作成します`, 'e');
     state = { images: shuffle(images), query:q };
     log('コラージュを貼り付け中…'); prog(0.95);
-    await new Promise(r=>setTimeout(r,30));
+    // リボン文字のフォントを読み込んでから描く（最大3秒待つ）
+    try{ await Promise.race([document.fonts.load('italic 40px "IM Fell English"'), new Promise(r=>setTimeout(r,3000))]); }catch(e){}
     draw(); prog(1);
     log(`完成しました（テーマ: ${q} / シード: ${seed}）`, 'o');
   }catch(e){ log('エラー: '+e.message, 'e'); prog(0); }
@@ -577,7 +805,7 @@ $('credTxt').onclick = ()=>{
 };
 $('count').oninput = e => $('countV').textContent = e.target.value;
 $('theme').onchange = e => $('custom').style.display = e.target.value==='__custom' ? 'block' : 'none';
-for(const id of ['layout','dpi','margin','bg','credit']) $(id).addEventListener('change', ()=>{ if(state){ setSeed(); draw(); } });
+for(const id of ['layout','dpi','margin','bg','credit','vintage','banner']) $(id).addEventListener('change', ()=>{ if(state){ setSeed(); draw(); } });
 // URLに ?auto を付けると開いた瞬間に自動生成
 if(new URLSearchParams(location.search).has('auto')) run();
 </script>
