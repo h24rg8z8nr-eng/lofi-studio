@@ -157,6 +157,7 @@ summary{cursor:pointer;font-size:13px;color:var(--sub)}
     </div>
 
     <div class="chk" style="margin-top:12px">
+      <label><input type="checkbox" id="saleSafe">販売用：日本で著作権切れが確実な素材だけ（1900年以前の作品で、作者が1957年以前に死去）</label>
       <label><input type="checkbox" id="paperOnly" checked>紙ものだけ（版画・楽譜・本・素描など）</label>
       <label><input type="checkbox" id="vintage" checked>古紙風の色味に加工</label>
       <label><input type="checkbox" id="banner" checked>飾りリボン文字（デザインペーパー）</label>
@@ -191,6 +192,7 @@ summary{cursor:pointer;font-size:13px;color:var(--sub)}
         <summary>使用した画像の出典一覧（<span id="nCred">0</span>点）</summary>
         <ol id="credits"></ol>
         <button class="btn sec" id="credTxt" disabled style="width:auto;padding:6px 12px">出典をテキストで保存</button>
+        <button class="btn sec" id="credCsv" disabled style="width:auto;padding:6px 12px">権利記録をCSVで保存（販売時の控え）</button>
       </details>
     </div>
   </section>
@@ -232,7 +234,7 @@ const cleanUrl = u => (u||'').split('?')[0];
 const SOURCES = {
   async aic(q, n){
     const base = 'https://api.artic.edu/api/v1/artworks/search';
-    const qs = p => `${base}?q=${encodeURIComponent(q)}&query[term][is_public_domain]=true&fields=id,title,artist_title,date_display,image_id,artwork_type_title,classification_title&limit=${p.limit}&page=${p.page}`;
+    const qs = p => `${base}?q=${encodeURIComponent(q)}&query[term][is_public_domain]=true&fields=id,title,artist_title,date_display,image_id,artwork_type_title,classification_title,date_end,artist_display&limit=${p.limit}&page=${p.page}`;
     const first = await getJSON(qs({limit:1,page:1}));
     const total = Math.min(first.pagination?.total || 0, 1000);
     if(!total) return [];
@@ -242,6 +244,7 @@ const SOURCES = {
     return (j.data||[]).filter(d=>d.image_id).map(d=>({
       url:`https://www.artic.edu/iiif/2/${d.image_id}/full/843,/0/default.jpg`,
       title:d.title, artist:d.artist_title||'', date:d.date_display||'', src:'aic', kind:`${d.artwork_type_title||''} ${d.classification_title||''}`,
+      year: toYear(d.date_end), deaths: deathYears(d.artist_display),
       source:'Art Institute of Chicago (CC0)', link:`https://www.artic.edu/artworks/${d.id}`
     }));
   },
@@ -256,7 +259,8 @@ const SOURCES = {
     return (j.data||[]).filter(d=>d.images?.web?.url).map(d=>({
       url:d.images.web.url, relay:true, src:'cma', kind:d.type||'',
       title:d.title, artist:(d.creators?.[0]?.description||'').replace(/\s*\(.*$/,''),
-      date:d.creation_date||'', source:'Cleveland Museum of Art (CC0)', link:d.url
+      date:d.creation_date||'', source:'Cleveland Museum of Art (CC0)', link:d.url,
+      year: toYear(d.creation_date_latest), deaths: (d.creators||[]).map(c=>toYear(c.death_year)).filter(Boolean)
     }));
   },
   async met(q, n){
@@ -277,7 +281,8 @@ const SOURCES = {
         if(o.isPublicDomain && (o.primaryImageSmall||o.primaryImage)) out.push({
           url:o.primaryImageSmall||o.primaryImage, relay:true, src:'met', kind:`${o.classification||''} ${o.objectName||''}`,
           title:o.title, artist:o.artistDisplayName||'',
-          date:o.objectDate||'', source:'The Metropolitan Museum of Art (Open Access, CC0)', link:o.objectURL
+          date:o.objectDate||'', source:'The Metropolitan Museum of Art (Open Access, CC0)', link:o.objectURL,
+          year: toYear(o.objectEndDate), deaths: String(o.artistEndDate||'').split('|').map(toYear).filter(Boolean)
         });
       }catch(e){}
     });
@@ -298,7 +303,9 @@ const SOURCES = {
         // 画像URLの末尾には ?utm_source=… が付くので、拡張子は ? より前で判定する
         const isImg = /^image\/(jpeg|png|tiff)/.test(ii.mime||'') || /\.(jpe?g|png|tiff?)$/i.test(cleanUrl(ii.url));
         if(!isImg) return null;
+        const years = (stripHtml(m.DateTimeOriginal?.value).match(/\b1[0-9]{3}\b/g)||[]).map(Number);
         return { url: cleanUrl(ii.thumburl||ii.url), src:'wiki',
+          year: years.length ? Math.max(...years) : null, deaths: [], restrictions: stripHtml(m.Restrictions?.value),
           title: stripHtml(m.ObjectName?.value) || p.title.replace(/^File:/,'').replace(/\.\w+$/,''),
           artist: stripHtml(m.Artist?.value).slice(0,80), date: stripHtml(m.DateTimeOriginal?.value).slice(0,40),
           source:`Wikimedia Commons (${stripHtml(m.LicenseShortName?.value)||'Public domain'})`, link: ii.descriptionurl };
@@ -343,6 +350,23 @@ async function loadCandidate(c){
 /* 紙もの（版画・素描・楽譜・本・印刷物など）か。種別情報のないもの（Wikimediaのスキャン等）は通す */
 const PAPER_RE = /print|drawing|book|manuscript|ephemera|poster|card|album|photograph|watercolou?r|map|paper|lithograph|engraving|etching|woodcut|sheet|music|illustrat|page|folio|calligraph/i;
 const isPaper = c => !c.kind || !c.kind.trim() || PAPER_RE.test(c.kind);
+/* ====== 販売用フィルター（日本で著作権が確実に切れたものだけ） ======
+   日本の保護期間は原則「作者の死後70年」。ただし2018年12月30日より前に切れていたもの
+   （死後50年で満了）は切れたまま。連合国の作者には戦時加算（最大約10年8か月）が付くため、
+   どの国の作者でも確実に切れているのは「1957年以前に亡くなった作者」の作品。
+   楽譜の作曲家・作詞者などデータに載らない関係者もいるため、制作年も1900年以前に限る。 */
+const SAFE_DEATH = 1957, SAFE_YEAR = 1900;
+const toYear = v => { const m = String(v ?? '').match(/-?\d{3,4}/); const y = m ? +m[0] : NaN; return (y > 0 && y < 2100) ? y : null; };
+const deathYears = s => [...String(s||'').matchAll(/\b1\d{3}\s*[-–—]\s*(1\d{3}|20\d{2})\b/g)].map(m=>+m[1]);
+function saleCheck(c){
+  if(!c.year) return '制作年が不明';
+  if(c.year > SAFE_YEAR) return `${SAFE_YEAR}年より後の作品（${c.year}年）`;
+  const late = (c.deaths||[]).filter(d => d > SAFE_DEATH);
+  if(late.length) return `作者の没年が${SAFE_DEATH}年より後（${late.join('・')}年）`;
+  if(c.restrictions) return `利用上の注意あり（${c.restrictions}）`;
+  return '';
+}
+
 /* ほぼ白紙（濃淡がほとんどない）画像を除く */
 function isBlank(img){
   const c = document.createElement('canvas'); c.width = c.height = 24;
@@ -369,6 +393,11 @@ async function collect(query, need){
     const before = cands.length;
     for(let i=cands.length-1;i>=0;i--) if(!isPaper(cands[i])) cands.splice(i,1);
     if(before > cands.length) log(`  紙もの以外（彫刻・器・絵画など）${before-cands.length}件を除外`);
+  }
+  if($('saleSafe').checked){
+    const before = cands.length;
+    for(let i=cands.length-1;i>=0;i--) if(saleCheck(cands[i])) cands.splice(i,1);
+    log(`  販売用フィルター: ${before-cands.length}件を除外（日本で著作権切れが確実でないもの）`);
   }
   if(!cands.length) throw new Error('候補画像が見つかりませんでした。テーマを変えて再試行してください');
   log(`候補 ${cands.length}件から画像をダウンロード中…`);
@@ -750,7 +779,7 @@ function setSeed(){
   rnd = mulberry32(+s);
   return s;
 }
-function busy(b){ for(const id of ['go','reshuffle','pdf','png1','png2','credTxt']) $(id).disabled = b || (id!=='go' && !state); }
+function busy(b){ for(const id of ['go','reshuffle','pdf','png1','png2','credTxt','credCsv']) $(id).disabled = b || (id!=='go' && !state); }
 
 async function run(){
   busy(true); $('log').innerHTML=''; prog(0.03);
@@ -764,7 +793,7 @@ async function run(){
     const images = await collect(q, need);
     if(images.length < 2) throw new Error('使える画像が少なすぎます。収集元やテーマを変えてください');
     if(images.length < need) log(`目標${need}枚に対し${images.length}枚で作成します`, 'e');
-    state = { images: shuffle(images), query:q };
+    state = { images: shuffle(images), query:q, saleSafe: $('saleSafe').checked };
     log('コラージュを貼り付け中…'); prog(0.95);
     // リボン文字のフォントを読み込んでから描く（最大3秒待つ）
     try{ await Promise.race([document.fonts.load('italic 40px "IM Fell English"'), new Promise(r=>setTimeout(r,3000))]); }catch(e){}
@@ -802,6 +831,15 @@ $('png2').onclick = ()=>exportPNG('2');
 $('credTxt').onclick = ()=>{
   const t = state.images.map((c,i)=>`${i+1}. ${c.title} — ${c.artist||'作者不詳'}${c.date?', '+c.date:''} / ${c.source}\n   ${c.link||c.url}`).join('\n');
   download(new Blob([`PD Collage 出典一覧（テーマ: ${state.query}）\n\n${t}\n`], {type:'text/plain'}), `collage-credits-${stamp()}.txt`);
+};
+$('credCsv').onclick = ()=>{
+  const q = v => `"${String(v ?? '').replace(/"/g,'""')}"`;
+  const head = ['No','作品名','作者','制作年(表記)','制作年(判定用)','作者の没年','収集元・ライセンス','作品ページ','画像URL','販売用判定','取得日時','テーマ','シード','販売用フィルター'];
+  const now = new Date().toISOString(), seed = $('seed').value || $('seed').placeholder.replace(/^前回: /,'');
+  const rows = state.images.map((c,i)=>{ const why = saleCheck(c);
+    return [i+1, c.title, c.artist, c.date, c.year ?? '', (c.deaths||[]).join('・'), c.source, c.link, c.url,
+      why ? '要確認: '+why : '基準を満たす', now, state.query, seed, state.saleSafe ? 'ON' : 'OFF'].map(q).join(','); });
+  download(new Blob(['\ufeff' + head.map(q).join(',') + '\n' + rows.join('\n') + '\n'], {type:'text/csv'}), `collage-rights-${stamp()}.csv`);
 };
 $('count').oninput = e => $('countV').textContent = e.target.value;
 $('theme').onchange = e => $('custom').style.display = e.target.value==='__custom' ? 'block' : 'none';
